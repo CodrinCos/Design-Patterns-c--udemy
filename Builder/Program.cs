@@ -1,79 +1,72 @@
 ﻿
-
-var me = Person.New
-  .Called("Codr")
-  .WorksAsA("Codr")
-  .Born(DateTime.UtcNow)
+var car = CarBuilder.Create()
+  .OfType(CarType.Crossover)
+  .WithWheels(18)
   .Build();
-Console.WriteLine(me);
+Console.WriteLine(car);
 
-class SomeBuilder : PersonBirthDateBuilder<SomeBuilder>
+
+public enum CarType
 {
-
+    Sedan,
+    Crossover
+};
+public class Car
+{
+    public CarType Type;
+    public int WheelSize;
 }
 
-public class Person
+public interface ISpecifyCarType
 {
-    public string Name;
-
-    public string Position;
-
-    public DateTime DateOfBirth;
-
-    public class Builder : PersonBirthDateBuilder<Builder>
-    {
-        internal Builder() { }
-    }
-
-    public static Builder New => new Builder();
-
-    public override string ToString()
-    {
-        return $"{nameof(Name)}: {Name}, {nameof(Position)}: {Position}";
-    }
+    public ISpecifyWheelSize OfType(CarType type);
 }
 
-public abstract class PersonBuilder
+public interface ISpecifyWheelSize
 {
-    protected Person person = new Person();
-
-    public Person Build()
-    {
-        return person;
-    }
+    public IBuildCar WithWheels(int size);
 }
 
-public class PersonInfoBuilder<SELF> : PersonBuilder
-  where SELF : PersonInfoBuilder<SELF>
+public interface IBuildCar
 {
-    public SELF Called(string name)
-    {
-        person.Name = name;
-        return (SELF)this;
-    }
+    public Car Build();
 }
 
-public class PersonJobBuilder<SELF>
-  : PersonInfoBuilder<PersonJobBuilder<SELF>>
-  where SELF : PersonJobBuilder<SELF>
+public class CarBuilder
 {
-    public SELF WorksAsA(string position)
+    public static ISpecifyCarType Create()
     {
-        person.Position = position;
-        return (SELF)this;
+        return new Impl();
     }
-}
 
-// here's another inheritance level
-// note there's no PersonInfoBuilder<PersonJobBuilder<PersonBirthDateBuilder<SELF>>>!
-
-public class PersonBirthDateBuilder<SELF>
-  : PersonJobBuilder<PersonBirthDateBuilder<SELF>>
-  where SELF : PersonBirthDateBuilder<SELF>
-{
-    public SELF Born(DateTime dateOfBirth)
+    private class Impl :
+      ISpecifyCarType,
+      ISpecifyWheelSize,
+      IBuildCar
     {
-        person.DateOfBirth = dateOfBirth;
-        return (SELF)this;
+        private Car car = new Car();
+
+        public ISpecifyWheelSize OfType(CarType type)
+        {
+            car.Type = type;
+            return this;
+        }
+
+        public IBuildCar WithWheels(int size)
+        {
+            switch (car.Type)
+            {
+                case CarType.Crossover when size < 17 || size > 20:
+                case CarType.Sedan when size < 15 || size > 17:
+                    throw new ArgumentException($"Wrong size of wheel for {car.Type}.");
+            }
+            car.WheelSize = size;
+            return this;
+        }
+
+        public Car Build()
+        {
+            return car;
+        }
     }
 }
