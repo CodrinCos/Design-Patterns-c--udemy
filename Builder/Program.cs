@@ -1,113 +1,79 @@
-﻿//Builder pattern 
-//When pieceswise object construction is complicated, provide an API for doing it succinclty
+﻿
 
-using System.Text;
+var me = Person.New
+  .Called("Codr")
+  .WorksAsA("Codr")
+  .Born(DateTime.UtcNow)
+  .Build();
+Console.WriteLine(me);
 
-
-//Before the pattern
-var hello = "hello";
-var sb = new StringBuilder();
-sb.Append("<p>");
-sb.Append(hello);
-sb.Append("</p>");
-//Console.WriteLine(sb);
-
-var words = new[] { "hello", "world" };
-sb.Clear();
-sb.Append("<ul>");
-foreach (var word in words)
-{ sb.AppendFormat("<li>{0}</li>", word); }
-sb.Append("</ul>");
-//Console.WriteLine(sb);
-
-// ordinary non-fluent builder
-var builder = new HtmlBuilder("ul");
-builder.AddChild("li", "hello");
-builder.AddChild("li", "world");
-Console.WriteLine(builder.ToString());
-
-// fluent builder
-sb.Clear();
-builder.Clear(); // disengage builder from the object it's building, then...
-builder.AddChildFluent("li", "hello").AddChildFluent("li", "world");
-Console.WriteLine(builder);
-
-public class HtmlElement
+class SomeBuilder : PersonBirthDateBuilder<SomeBuilder>
 {
-    public string Name, Text;
-    public List<HtmlElement> Elements = new List<HtmlElement>();
-    private const int indentSize = 2;
 
-    public HtmlElement()
-    { }
+}
 
-    public HtmlElement(string name, string text)
+public class Person
+{
+    public string Name;
+
+    public string Position;
+
+    public DateTime DateOfBirth;
+
+    public class Builder : PersonBirthDateBuilder<Builder>
     {
-        Name = name;
-        Text = text;
+        internal Builder() { }
     }
-    
-    private string ToStringImpl(int indent)
-    {
-        var sb = new StringBuilder();
-        var i = new string(' ', indentSize * indent);
-        sb.Append($"{i}<{Name}>\n");
-        if(!string.IsNullOrEmpty(Text))
-        {
-            sb.Append(new string(' ', indentSize * (indent + 1)));
-            sb.AppendLine(Text);
-        }
 
-        foreach(var e in Elements)
-        {
-            sb.Append(e.ToStringImpl(indent + 1));
-        }
-        sb.AppendLine($"{i}</{Name}>");
-
-        return sb.ToString();
-    }
+    public static Builder New => new Builder();
 
     public override string ToString()
     {
-        return ToStringImpl(0);
+        return $"{nameof(Name)}: {Name}, {nameof(Position)}: {Position}";
     }
 }
 
-public class HtmlBuilder
+public abstract class PersonBuilder
 {
-    private readonly string rootName;
-    HtmlElement root = new HtmlElement();
+    protected Person person = new Person();
 
-    public HtmlBuilder(string rootName)
+    public Person Build()
     {
-        this.rootName = rootName;
-        root.Name = rootName;
-    }
-
-    // not fluent
-    public void AddChild(string childName, string childText)
-    {
-        var e = new HtmlElement(childName, childText);
-        root.Elements.Add(e);
-    }
-
-    public HtmlBuilder AddChildFluent(string childName, string childText)
-    {
-        var e = new HtmlElement(childName, childText);
-        root.Elements.Add(e);
-        return this;
-    }
-
-    public override string ToString()
-    {
-        return root.ToString();
-    }
-
-    public void Clear()
-    {
-        root = new HtmlElement { Name = rootName};
+        return person;
     }
 }
 
+public class PersonInfoBuilder<SELF> : PersonBuilder
+  where SELF : PersonInfoBuilder<SELF>
+{
+    public SELF Called(string name)
+    {
+        person.Name = name;
+        return (SELF)this;
+    }
+}
 
+public class PersonJobBuilder<SELF>
+  : PersonInfoBuilder<PersonJobBuilder<SELF>>
+  where SELF : PersonJobBuilder<SELF>
+{
+    public SELF WorksAsA(string position)
+    {
+        person.Position = position;
+        return (SELF)this;
+    }
+}
 
+// here's another inheritance level
+// note there's no PersonInfoBuilder<PersonJobBuilder<PersonBirthDateBuilder<SELF>>>!
+
+public class PersonBirthDateBuilder<SELF>
+  : PersonJobBuilder<PersonBirthDateBuilder<SELF>>
+  where SELF : PersonBirthDateBuilder<SELF>
+{
+    public SELF Born(DateTime dateOfBirth)
+    {
+        person.DateOfBirth = dateOfBirth;
+        return (SELF)this;
+    }
+}
