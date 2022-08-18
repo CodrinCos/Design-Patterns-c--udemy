@@ -1,72 +1,65 @@
-﻿
-var car = CarBuilder.Create()
-  .OfType(CarType.Crossover)
-  .WithWheels(18)
-  .Build();
-Console.WriteLine(car);
+﻿var person = new PersonBuilder()
+    .Called("Cod")
+    //And because of the extension now it can work too
+    .WorkAs("Developer")
+    .Build();
+
+Console.WriteLine(person.Position);
 
 
-public enum CarType
+public class Person
 {
-    Sedan,
-    Crossover
-};
-public class Car
-{
-    public CarType Type;
-    public int WheelSize;
+    public string Name, Position;
 }
 
-public interface ISpecifyCarType
+public abstract class FunctionalBuilder<TSubject, TSelf>
+    where TSelf : FunctionalBuilder<TSubject, TSelf>
+    where TSubject : new()
 {
-    public ISpecifyWheelSize OfType(CarType type);
-}
+    //list of mutating function which will change the person
+    private readonly List<Func<Person, Person>> actions = new List<Func<Person, Person>>();
 
-public interface ISpecifyWheelSize
-{
-    public IBuildCar WithWheels(int size);
-}
+    public TSelf Called(string name) => Do(p => p.Name = name);
 
-public interface IBuildCar
-{
-    public Car Build();
-}
+    public Person Build() => actions.Aggregate(new Person(), (p, f) => f(p));
 
-public class CarBuilder
-{
-    public static ISpecifyCarType Create()
+    public TSelf Do(Action<Person> action) => AddAction(action);
+
+    private TSelf AddAction(Action<Person> action)
     {
-        return new Impl();
+        actions.Add(p => { action(p); return p; });
+        return (TSelf)this;
     }
+}
 
-    private class Impl :
-      ISpecifyCarType,
-      ISpecifyWheelSize,
-      IBuildCar
+public sealed class PersonBuilder
+    : FunctionalBuilder<Person, PersonBuilder>
+{
+    public PersonBuilder Called(string name) => Do(p => p.Name = name);
+}
+
+//Now instead of this, we can make more generic, look up
+/*public sealed class PersonBuilder
+{
+    //list of mutating function which will change the person
+    private readonly List<Func<Person, Person>> actions = new List<Func<Person, Person>>();
+
+    public PersonBuilder Called(string name) => Do(p => p.Name = name);
+
+    public Person Build() => actions.Aggregate(new Person(), (p, f) => f(p));
+
+    public PersonBuilder Do(Action<Person> action) => AddAction(action);
+
+    private PersonBuilder AddAction(Action<Person> action)
     {
-        private Car car = new Car();
-
-        public ISpecifyWheelSize OfType(CarType type)
-        {
-            car.Type = type;
-            return this;
-        }
-
-        public IBuildCar WithWheels(int size)
-        {
-            switch (car.Type)
-            {
-                case CarType.Crossover when size < 17 || size > 20:
-                case CarType.Sedan when size < 15 || size > 17:
-                    throw new ArgumentException($"Wrong size of wheel for {car.Type}.");
-            }
-            car.WheelSize = size;
-            return this;
-        }
-
-        public Car Build()
-        {
-            return car;
-        }
+        actions.Add(p => { action(p); return p; });
+        return this;
     }
+}*/
+
+//Now because we do not want to use inheritance, we will make use of extensions (follow open closed principle)
+public static class PersonBuilderExtensions
+{
+    public static PersonBuilder WorkAs(this PersonBuilder builder, string position) 
+        => builder.Do(p => p.Position = position);
 }
