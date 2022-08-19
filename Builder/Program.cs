@@ -1,65 +1,93 @@
-﻿var person = new PersonBuilder()
-    .Called("Cod")
-    //And because of the extension now it can work too
-    .WorkAs("Developer")
-    .Build();
+﻿//prev used 1 builder
+//sometimes several builder are needed for building different aspects
+//facade - ???
 
-Console.WriteLine(person.Position);
 
+var pb = new PersonBuilder();
+Person person = pb.Lives.At("123 London").In("asd").WithPostcode("asd")
+               .Works.At("Company").AsA("Engineer").Earning(123123); 
+
+Console.WriteLine(person);
 
 public class Person
 {
-    public string Name, Position;
-}
+    //address
+    public string StreetAddress, Postcode, City;
 
-public abstract class FunctionalBuilder<TSubject, TSelf>
-    where TSelf : FunctionalBuilder<TSubject, TSelf>
-    where TSubject : new()
-{
-    //list of mutating function which will change the person
-    private readonly List<Func<Person, Person>> actions = new List<Func<Person, Person>>();
+    //employment
+    public string CompanyName, Position;
+    public int AnnualIncome;
 
-    public TSelf Called(string name) => Do(p => p.Name = name);
-
-    public Person Build() => actions.Aggregate(new Person(), (p, f) => f(p));
-
-    public TSelf Do(Action<Person> action) => AddAction(action);
-
-    private TSelf AddAction(Action<Person> action)
+    public override string ToString()
     {
-        actions.Add(p => { action(p); return p; });
-        return (TSelf)this;
+        return $"{nameof(StreetAddress)}: {StreetAddress}, {nameof(Postcode)} : {Postcode}, {nameof(CompanyName)} : {CompanyName} etc ..."; 
     }
 }
 
-public sealed class PersonBuilder
-    : FunctionalBuilder<Person, PersonBuilder>
+public class PersonBuilder //facade - keeps a reference to the person thats builds up, -it allows you access to sub-builders
 {
-    public PersonBuilder Called(string name) => Do(p => p.Name = name);
+    //reference! - not works for example with struct
+    protected Person Person = new Person();
+
+    public PersonJobBuilder Works => new PersonJobBuilder(Person); //this is one facet.
+    public PersonAddressBuilder Lives => new PersonAddressBuilder(Person); //another facet
+
+    //Implicit conversion operator to Person 
+    public static implicit operator Person(PersonBuilder pb)
+    {
+        return pb.Person;
+    }
 }
 
-//Now instead of this, we can make more generic, look up
-/*public sealed class PersonBuilder
+public class PersonAddressBuilder : PersonBuilder
 {
-    //list of mutating function which will change the person
-    private readonly List<Func<Person, Person>> actions = new List<Func<Person, Person>>();
-
-    public PersonBuilder Called(string name) => Do(p => p.Name = name);
-
-    public Person Build() => actions.Aggregate(new Person(), (p, f) => f(p));
-
-    public PersonBuilder Do(Action<Person> action) => AddAction(action);
-
-    private PersonBuilder AddAction(Action<Person> action)
+    // might not work with a value type!
+    public PersonAddressBuilder(Person person)
     {
-        actions.Add(p => { action(p); return p; });
+        this.Person = person;
+    }
+
+    public PersonAddressBuilder At(string streetAddress)
+    {
+        Person.StreetAddress = streetAddress;
         return this;
     }
-}*/
 
-//Now because we do not want to use inheritance, we will make use of extensions (follow open closed principle)
-public static class PersonBuilderExtensions
+    public PersonAddressBuilder WithPostcode(string postcode)
+    {
+        Person.Postcode = postcode;
+        return this;
+    }
+
+    public PersonAddressBuilder In(string city)
+    {
+        Person.City = city;
+        return this;
+    }
+}
+
+public class PersonJobBuilder : PersonBuilder
 {
-    public static PersonBuilder WorkAs(this PersonBuilder builder, string position) 
-        => builder.Do(p => p.Position = position);
+    public PersonJobBuilder(Person person)
+    {
+        this.Person = person;
+    }
+
+    public PersonJobBuilder At(string companyName)
+    {
+        Person.CompanyName = companyName;
+        return this;
+    }
+
+    public PersonJobBuilder AsA(string position)
+    {
+        Person.Position = position;
+        return this;
+    }
+
+    public PersonJobBuilder Earning(int amount)
+    {
+        Person.AnnualIncome = amount;
+        return this;
+    }
 }
