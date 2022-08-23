@@ -1,93 +1,102 @@
-﻿//prev used 1 builder
-//sometimes several builder are needed for building different aspects
-//facade - ???
+﻿var factory = new TrackingThemeFactory();
+var theme = factory.CreateTheme(true);
+var theme2 = factory.CreateTheme(false);
+Console.WriteLine(factory.Info);
+// Dark theme
+// Light theme
 
 
-var pb = new PersonBuilder();
-Person person = pb.Lives.At("123 London").In("asd").WithPostcode("asd")
-               .Works.At("Company").AsA("Engineer").Earning(123123); 
+// replacement
+var factory2 = new ReplaceableThemeFactory();
+var magicTheme = factory2.CreateTheme(true);
+Console.WriteLine(magicTheme.Value.BgrColor); // dark gray
+factory2.ReplaceTheme(false);
+Console.WriteLine(magicTheme.Value.BgrColor); // white
 
-Console.WriteLine(person);
 
-public class Person
+public interface ITheme
 {
-    //address
-    public string StreetAddress, Postcode, City;
+    string TextColor { get; }
+    string BgrColor { get; }
+}
 
-    //employment
-    public string CompanyName, Position;
-    public int AnnualIncome;
+class LightTheme : ITheme
+{
+    public string TextColor => "black";
+    public string BgrColor => "white";
+}
 
-    public override string ToString()
+class DarkTheme : ITheme
+{
+    public string TextColor => "white";
+    public string BgrColor => "dark gray";
+}
+
+public class TrackingThemeFactory
+{
+    private readonly List<WeakReference<ITheme>> themes = new();
+
+    public ITheme CreateTheme(bool dark)
     {
-        return $"{nameof(StreetAddress)}: {StreetAddress}, {nameof(Postcode)} : {Postcode}, {nameof(CompanyName)} : {CompanyName} etc ..."; 
+        ITheme theme = dark ? new DarkTheme() : new LightTheme();
+        themes.Add(new WeakReference<ITheme>(theme));
+        return theme;
+    }
+
+    public string Info
+    {
+        get
+        {
+            var sb = new StringBuilder();
+            foreach (var reference in themes)
+            {
+                if (reference.TryGetTarget(out var theme))
+                {
+                    bool dark = theme is DarkTheme;
+                    sb.Append(dark ? "Dark" : "Light")
+                      .AppendLine(" theme");
+                }
+            }
+            return sb.ToString();
+        }
     }
 }
 
-public class PersonBuilder //facade - keeps a reference to the person thats builds up, -it allows you access to sub-builders
+public class ReplaceableThemeFactory
 {
-    //reference! - not works for example with struct
-    protected Person Person = new Person();
+    private readonly List<WeakReference<Ref<ITheme>>> themes
+      = new();
 
-    public PersonJobBuilder Works => new PersonJobBuilder(Person); //this is one facet.
-    public PersonAddressBuilder Lives => new PersonAddressBuilder(Person); //another facet
-
-    //Implicit conversion operator to Person 
-    public static implicit operator Person(PersonBuilder pb)
+    private ITheme createThemeImpl(bool dark)
     {
-        return pb.Person;
+        return dark ? new DarkTheme() : new LightTheme();
+    }
+
+    public Ref<ITheme> CreateTheme(bool dark)
+    {
+        var r = new Ref<ITheme>(createThemeImpl(dark));
+        themes.Add(new(r));
+        return r;
+    }
+
+    public void ReplaceTheme(bool dark)
+    {
+        foreach (var wr in themes)
+        {
+            if (wr.TryGetTarget(out var reference))
+            {
+                reference.Value = createThemeImpl(dark);
+            }
+        }
     }
 }
 
-public class PersonAddressBuilder : PersonBuilder
+public class Ref<T> where T : class
 {
-    // might not work with a value type!
-    public PersonAddressBuilder(Person person)
-    {
-        this.Person = person;
-    }
+    public T Value;
 
-    public PersonAddressBuilder At(string streetAddress)
+    public Ref(T value)
     {
-        Person.StreetAddress = streetAddress;
-        return this;
-    }
-
-    public PersonAddressBuilder WithPostcode(string postcode)
-    {
-        Person.Postcode = postcode;
-        return this;
-    }
-
-    public PersonAddressBuilder In(string city)
-    {
-        Person.City = city;
-        return this;
-    }
-}
-
-public class PersonJobBuilder : PersonBuilder
-{
-    public PersonJobBuilder(Person person)
-    {
-        this.Person = person;
-    }
-
-    public PersonJobBuilder At(string companyName)
-    {
-        Person.CompanyName = companyName;
-        return this;
-    }
-
-    public PersonJobBuilder AsA(string position)
-    {
-        Person.Position = position;
-        return this;
-    }
-
-    public PersonJobBuilder Earning(int amount)
-    {
-        Person.AnnualIncome = amount;
-        return this;
+        Value = value;
     }
 }
