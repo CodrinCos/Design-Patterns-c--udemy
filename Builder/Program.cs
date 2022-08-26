@@ -1,102 +1,118 @@
-﻿var factory = new TrackingThemeFactory();
-var theme = factory.CreateTheme(true);
-var theme2 = factory.CreateTheme(false);
-Console.WriteLine(factory.Info);
-// Dark theme
-// Light theme
+﻿var machine = new HotDrinkMachine();
+//var drink = machine.MakeDrink(HotDrinkMachine.AvailableDrink.Tea, 300);
+//drink.Consume();
 
+IHotDrink drink = machine.MakeDrink();
+drink.Consume();
 
-// replacement
-var factory2 = new ReplaceableThemeFactory();
-var magicTheme = factory2.CreateTheme(true);
-Console.WriteLine(magicTheme.Value.BgrColor); // dark gray
-factory2.ReplaceTheme(false);
-Console.WriteLine(magicTheme.Value.BgrColor); // white
-
-
-public interface ITheme
+public interface IHotDrink
 {
-    string TextColor { get; }
-    string BgrColor { get; }
+    void Consume();
 }
 
-class LightTheme : ITheme
+internal class Tea : IHotDrink
 {
-    public string TextColor => "black";
-    public string BgrColor => "white";
-}
-
-class DarkTheme : ITheme
-{
-    public string TextColor => "white";
-    public string BgrColor => "dark gray";
-}
-
-public class TrackingThemeFactory
-{
-    private readonly List<WeakReference<ITheme>> themes = new();
-
-    public ITheme CreateTheme(bool dark)
+    public void Consume()
     {
-        ITheme theme = dark ? new DarkTheme() : new LightTheme();
-        themes.Add(new WeakReference<ITheme>(theme));
-        return theme;
+        Console.WriteLine("This tea is nice but I'd prefer it with milk.");
+    }
+}
+
+internal class Coffee : IHotDrink
+{
+    public void Consume()
+    {
+        Console.WriteLine("This coffee is delicious!");
+    }
+}
+
+public interface IHotDrinkFactory
+{
+    IHotDrink Prepare(int amount);
+}
+
+internal class TeaFactory : IHotDrinkFactory
+{
+    public IHotDrink Prepare(int amount)
+    {
+        Console.WriteLine($"Put in tea bag, boil water, pour {amount} ml, add lemon, enjoy!");
+        return new Tea();
+    }
+}
+
+internal class CoffeeFactory : IHotDrinkFactory
+{
+    public IHotDrink Prepare(int amount)
+    {
+        Console.WriteLine($"Grind some beans, boil water, pour {amount} ml, add cream and sugar, enjoy!");
+        return new Coffee();
+    }
+}
+
+public class HotDrinkMachine
+{
+    public enum AvailableDrink // violates open-closed
+    {
+        Coffee, Tea
     }
 
-    public string Info
+    private Dictionary<AvailableDrink, IHotDrinkFactory> factories =
+      new Dictionary<AvailableDrink, IHotDrinkFactory>();
+
+    private List<Tuple<string, IHotDrinkFactory>> namedFactories =
+      new List<Tuple<string, IHotDrinkFactory>>();
+
+    public HotDrinkMachine()
     {
-        get
+        //foreach (AvailableDrink drink in Enum.GetValues(typeof(AvailableDrink)))
+        //{
+        //  var factory = (IHotDrinkFactory) Activator.CreateInstance(
+        //    Type.GetType("DotNetDesignPatternDemos.Creational.AbstractFactory." + Enum.GetName(typeof(AvailableDrink), drink) + "Factory"));
+        //  factories.Add(drink, factory);
+        //}
+
+        foreach (var t in typeof(HotDrinkMachine).Assembly.GetTypes())
         {
-            var sb = new StringBuilder();
-            foreach (var reference in themes)
+            if (typeof(IHotDrinkFactory).IsAssignableFrom(t) && !t.IsInterface)
             {
-                if (reference.TryGetTarget(out var theme))
+                namedFactories.Add(Tuple.Create(
+                  t.Name.Replace("Factory", string.Empty), (IHotDrinkFactory)Activator.CreateInstance(t)));
+            }
+        }
+    }
+
+    public IHotDrink MakeDrink()
+    {
+        Console.WriteLine("Available drinks");
+        for (var index = 0; index < namedFactories.Count; index++)
+        {
+            var tuple = namedFactories[index];
+            Console.WriteLine($"{index}: {tuple.Item1}");
+        }
+
+        while (true)
+        {
+            string s;
+            if ((s = Console.ReadLine()) != null
+                && int.TryParse(s, out int i) // c# 7
+                && i >= 0
+                && i < namedFactories.Count)
+            {
+                Console.Write("Specify amount: ");
+                s = Console.ReadLine();
+                if (s != null
+                    && int.TryParse(s, out int amount)
+                    && amount > 0)
                 {
-                    bool dark = theme is DarkTheme;
-                    sb.Append(dark ? "Dark" : "Light")
-                      .AppendLine(" theme");
+                    return namedFactories[i].Item2.Prepare(amount);
                 }
             }
-            return sb.ToString();
+            Console.WriteLine("Incorrect input, try again.");
         }
     }
-}
 
-public class ReplaceableThemeFactory
-{
-    private readonly List<WeakReference<Ref<ITheme>>> themes
-      = new();
-
-    private ITheme createThemeImpl(bool dark)
-    {
-        return dark ? new DarkTheme() : new LightTheme();
-    }
-
-    public Ref<ITheme> CreateTheme(bool dark)
-    {
-        var r = new Ref<ITheme>(createThemeImpl(dark));
-        themes.Add(new(r));
-        return r;
-    }
-
-    public void ReplaceTheme(bool dark)
-    {
-        foreach (var wr in themes)
-        {
-            if (wr.TryGetTarget(out var reference))
-            {
-                reference.Value = createThemeImpl(dark);
-            }
-        }
-    }
-}
-
-public class Ref<T> where T : class
-{
-    public T Value;
-
-    public Ref(T value)
-    {
-        Value = value;
-    }
+    //public IHotDrink MakeDrink(AvailableDrink drink, int amount)
+    //{
+    //  return factories[drink].Prepare(amount);
+    //}
 }
