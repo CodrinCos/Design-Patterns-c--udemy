@@ -1,118 +1,60 @@
-﻿var machine = new HotDrinkMachine();
-//var drink = machine.MakeDrink(HotDrinkMachine.AvailableDrink.Tea, 300);
-//drink.Consume();
+﻿
+var john = new Employee("John", new Address("123 London Road", "London", "UK"));
 
-IHotDrink drink = machine.MakeDrink();
-drink.Consume();
+//var chris = john;
+var chris = new Employee(john);
 
-public interface IHotDrink
+chris.Name = "Chris";
+Console.WriteLine(john); // oops, john is called chris
+Console.WriteLine(chris);
+
+public class Address
 {
-    void Consume();
-}
+    public string StreetAddress, City, Country;
 
-internal class Tea : IHotDrink
-{
-    public void Consume()
+    public Address(string streetAddress, string city, string country)
     {
-        Console.WriteLine("This tea is nice but I'd prefer it with milk.");
+        StreetAddress = streetAddress ?? throw new ArgumentNullException(paramName: nameof(streetAddress));
+        City = city ?? throw new ArgumentNullException(paramName: nameof(city));
+        Country = country ?? throw new ArgumentNullException(paramName: nameof(country));
+    }
+
+    public Address(Address other)
+    {
+        StreetAddress = other.StreetAddress;
+        City = other.City;
+        Country = other.Country;
+    }
+
+    public override string ToString()
+    {
+        return $"{nameof(StreetAddress)}: {StreetAddress}, {nameof(City)}: {City}, {nameof(Country)}: {Country}";
     }
 }
 
-internal class Coffee : IHotDrink
+public class Employee
 {
-    public void Consume()
+    public string Name;
+    public Address Address;
+
+    public Employee(string name, Address address)
     {
-        Console.WriteLine("This coffee is delicious!");
+        Name = name ?? throw new ArgumentNullException(paramName: nameof(name));
+        Address = address ?? throw new ArgumentNullException(paramName: nameof(address));
+    }
+
+    public Employee(Employee other)
+    {
+        Name = other.Name;
+        Address = new Address(other.Address);
+    }
+
+    public override string ToString()
+    {
+        return $"{nameof(Name)}: {Name}, {nameof(Address)}: {Address}";
     }
 }
 
-public interface IHotDrinkFactory
-{
-    IHotDrink Prepare(int amount);
-}
 
-internal class TeaFactory : IHotDrinkFactory
-{
-    public IHotDrink Prepare(int amount)
-    {
-        Console.WriteLine($"Put in tea bag, boil water, pour {amount} ml, add lemon, enjoy!");
-        return new Tea();
-    }
-}
 
-internal class CoffeeFactory : IHotDrinkFactory
-{
-    public IHotDrink Prepare(int amount)
-    {
-        Console.WriteLine($"Grind some beans, boil water, pour {amount} ml, add cream and sugar, enjoy!");
-        return new Coffee();
-    }
-}
 
-public class HotDrinkMachine
-{
-    public enum AvailableDrink // violates open-closed
-    {
-        Coffee, Tea
-    }
-
-    private Dictionary<AvailableDrink, IHotDrinkFactory> factories =
-      new Dictionary<AvailableDrink, IHotDrinkFactory>();
-
-    private List<Tuple<string, IHotDrinkFactory>> namedFactories =
-      new List<Tuple<string, IHotDrinkFactory>>();
-
-    public HotDrinkMachine()
-    {
-        //foreach (AvailableDrink drink in Enum.GetValues(typeof(AvailableDrink)))
-        //{
-        //  var factory = (IHotDrinkFactory) Activator.CreateInstance(
-        //    Type.GetType("DotNetDesignPatternDemos.Creational.AbstractFactory." + Enum.GetName(typeof(AvailableDrink), drink) + "Factory"));
-        //  factories.Add(drink, factory);
-        //}
-
-        foreach (var t in typeof(HotDrinkMachine).Assembly.GetTypes())
-        {
-            if (typeof(IHotDrinkFactory).IsAssignableFrom(t) && !t.IsInterface)
-            {
-                namedFactories.Add(Tuple.Create(
-                  t.Name.Replace("Factory", string.Empty), (IHotDrinkFactory)Activator.CreateInstance(t)));
-            }
-        }
-    }
-
-    public IHotDrink MakeDrink()
-    {
-        Console.WriteLine("Available drinks");
-        for (var index = 0; index < namedFactories.Count; index++)
-        {
-            var tuple = namedFactories[index];
-            Console.WriteLine($"{index}: {tuple.Item1}");
-        }
-
-        while (true)
-        {
-            string s;
-            if ((s = Console.ReadLine()) != null
-                && int.TryParse(s, out int i) // c# 7
-                && i >= 0
-                && i < namedFactories.Count)
-            {
-                Console.Write("Specify amount: ");
-                s = Console.ReadLine();
-                if (s != null
-                    && int.TryParse(s, out int amount)
-                    && amount > 0)
-                {
-                    return namedFactories[i].Item2.Prepare(amount);
-                }
-            }
-            Console.WriteLine("Incorrect input, try again.");
-        }
-    }
-
-    //public IHotDrink MakeDrink(AvailableDrink drink, int amount)
-    //{
-    //  return factories[drink].Prepare(amount);
-    //}
-}
