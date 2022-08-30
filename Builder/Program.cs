@@ -1,49 +1,114 @@
-﻿using System.Runtime.Serialization.Formatters.Binary;
-using System.Xml.Serialization;
+﻿
+var john = new Employee();
+john.Names = new[] { "John", "Doe" };
+john.Address = new Address { HouseNumber = 123, StreetName = "London Road" };
+john.Salary = 321000;
+var copy = john.DeepCopy();
 
-Foo foo = new Foo { Stuff = 42, Whatever = "abc" };
+copy.Names[1] = "Smith";
+copy.Address.HouseNumber++;
+copy.Salary = 123000;
 
-//Foo foo2 = foo.DeepCopy(); // crashes without [Serializable]
-Foo foo2 = foo.DeepCopyXml();
+Console.WriteLine(john);
+Console.WriteLine(copy);
 
-foo2.Whatever = "xyz";
-Console.WriteLine(foo);
-Console.WriteLine(foo2);
-
-
-public static class ExtensionMethods
+public interface IDeepCopyable<T> where T : new()
 {
-    public static T DeepCopy<T>(this T self)
-    {
-        MemoryStream stream = new MemoryStream();
-        BinaryFormatter formatter = new BinaryFormatter();
-        formatter.Serialize(stream, self);
-        stream.Seek(0, SeekOrigin.Begin);
-        object copy = formatter.Deserialize(stream);
-        stream.Close();
-        return (T)copy;
-    }
+    void CopyTo(T target);
 
-    public static T DeepCopyXml<T>(this T self)
+    public T DeepCopy()
     {
-        using (var ms = new MemoryStream())
-        {
-            XmlSerializer s = new XmlSerializer(typeof(T));
-            s.Serialize(ms, self);
-            ms.Position = 0;
-            return (T)s.Deserialize(ms);
-        }
+        T t = new T();
+        CopyTo(t);
+        return t;
     }
 }
 
-//[Serializable] // this is, unfortunately, required
-public class Foo
+public class Address : IDeepCopyable<Address>
 {
-    public uint Stuff;
-    public string Whatever;
+    public string StreetName;
+    public int HouseNumber;
+
+    public Address(string streetName, int houseNumber)
+    {
+        StreetName = streetName;
+        HouseNumber = houseNumber;
+    }
+
+    public Address()
+    {
+
+    }
 
     public override string ToString()
     {
-        return $"{nameof(Stuff)}: {Stuff}, {nameof(Whatever)}: {Whatever}";
+        return $"{nameof(StreetName)}: {StreetName}, {nameof(HouseNumber)}: {HouseNumber}";
+    }
+
+    public void CopyTo(Address target)
+    {
+        target.StreetName = StreetName;
+        target.HouseNumber = HouseNumber;
+    }
+}
+
+
+
+public class Person : IDeepCopyable<Person>
+{
+    public string[] Names;
+    public Address Address;
+
+    public Person()
+    {
+
+    }
+
+    public Person(string[] names, Address address)
+    {
+        Names = names;
+        Address = address;
+    }
+
+    public override string ToString()
+    {
+        return $"{nameof(Names)}: {string.Join(",", Names)}, {nameof(Address)}: {Address}";
+    }
+
+    public virtual void CopyTo(Person target)
+    {
+        target.Names = (string[])Names.Clone();
+        target.Address = Address.DeepCopy();
+    }
+}
+
+public class Employee : Person, IDeepCopyable<Employee>
+{
+    public int Salary;
+
+    public void CopyTo(Employee target)
+    {
+        base.CopyTo(target);
+        target.Salary = Salary;
+    }
+
+    public override string ToString()
+    {
+        return $"{base.ToString()}, {nameof(Salary)}: {Salary}";
+    }
+}
+
+public static class DeepCopyExtensions
+{
+    public static T DeepCopy<T>(this IDeepCopyable<T> item)
+      where T : new()
+    {
+        return item.DeepCopy();
+    }
+
+    public static T DeepCopy<T>(this T person)
+      where T : Person, new()
+    {
+        return ((IDeepCopyable<T>)person).DeepCopy();
     }
 }
