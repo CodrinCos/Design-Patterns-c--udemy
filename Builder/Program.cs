@@ -1,114 +1,39 @@
 ﻿
-var john = new Employee();
-john.Names = new[] { "John", "Doe" };
-john.Address = new Address { HouseNumber = 123, StreetName = "London Road" };
-john.Salary = 321000;
-var copy = john.DeepCopy();
+using MoreLinq;
 
-copy.Names[1] = "Smith";
-copy.Address.HouseNumber++;
-copy.Salary = 123000;
+var db = SingletonDatabase.Instance;
+var city = "Tokyo";
+Console.WriteLine($"{city} has population {db.GetPopulation(city)}");
 
-Console.WriteLine(john);
-Console.WriteLine(copy);
 
-public interface IDeepCopyable<T> where T : new()
+
+public interface IDatabase
 {
-    void CopyTo(T target);
-
-    public T DeepCopy()
-    {
-        T t = new T();
-        CopyTo(t);
-        return t;
-    }
-}
-
-public class Address : IDeepCopyable<Address>
-{
-    public string StreetName;
-    public int HouseNumber;
-
-    public Address(string streetName, int houseNumber)
-    {
-        StreetName = streetName;
-        HouseNumber = houseNumber;
-    }
-
-    public Address()
-    {
-
-    }
-
-    public override string ToString()
-    {
-        return $"{nameof(StreetName)}: {StreetName}, {nameof(HouseNumber)}: {HouseNumber}";
-    }
-
-    public void CopyTo(Address target)
-    {
-        target.StreetName = StreetName;
-        target.HouseNumber = HouseNumber;
-    }
+    int GetPopulation(string name);
 }
 
 
-
-public class Person : IDeepCopyable<Person>
+public class SingletonDatabase : IDatabase
 {
-    public string[] Names;
-    public Address Address;
+    private Dictionary<string, int> capitals;
 
-    public Person()
+    private SingletonDatabase()
     {
+        Console.WriteLine("init db");
 
+        capitals = File.ReadAllLines("Capitals.txt")
+                    .Batch(2)
+                    .ToDictionary(
+                         list => list.ElementAt(0).Trim(), 
+                         list => int.Parse(list.ElementAt(1))
+                     );
+    }
+    public int GetPopulation(string name)
+    {
+        return capitals[name];
     }
 
-    public Person(string[] names, Address address)
-    {
-        Names = names;
-        Address = address;
-    }
+    private static Lazy<SingletonDatabase> instance = new Lazy<SingletonDatabase>(() => new SingletonDatabase());
 
-    public override string ToString()
-    {
-        return $"{nameof(Names)}: {string.Join(",", Names)}, {nameof(Address)}: {Address}";
-    }
-
-    public virtual void CopyTo(Person target)
-    {
-        target.Names = (string[])Names.Clone();
-        target.Address = Address.DeepCopy();
-    }
-}
-
-public class Employee : Person, IDeepCopyable<Employee>
-{
-    public int Salary;
-
-    public void CopyTo(Employee target)
-    {
-        base.CopyTo(target);
-        target.Salary = Salary;
-    }
-
-    public override string ToString()
-    {
-        return $"{base.ToString()}, {nameof(Salary)}: {Salary}";
-    }
-}
-
-public static class DeepCopyExtensions
-{
-    public static T DeepCopy<T>(this IDeepCopyable<T> item)
-      where T : new()
-    {
-        return item.DeepCopy();
-    }
-
-    public static T DeepCopy<T>(this T person)
-      where T : Person, new()
-    {
-        return ((IDeepCopyable<T>)person).DeepCopy();
-    }
+    public static SingletonDatabase Instance => instance.Value;
 }
