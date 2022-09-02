@@ -1,102 +1,108 @@
-﻿//
+﻿using MoreLinq;
+using System.Collections.ObjectModel;
 
-using System.Text;
-
-var house = new Builduing();
-
-//ground floor 300
-using(new BuildingContext(3000))
+List<VectorObject> vectorObjects = new List<VectorObject>
 {
-    house.Walls.Add(new Wall(new Point(0, 0), new Point(5000, 0)));
-    house.Walls.Add(new Wall(new Point(0, 0), new Point(0, 4000)));
+      new VectorRectangle(1, 1, 10, 10),
+      new VectorRectangle(3, 3, 6, 6)
+};
 
+Draw(vectorObjects);
+Draw(vectorObjects);
 
-    // 1st floor 3500
-    using (new BuildingContext(3500))
-    {
-        house.Walls.Add(new Wall(new Point(0, 0), new Point(5000, 0)));
-        house.Walls.Add(new Wall(new Point(0, 0), new Point(0, 4000)));
-    }
-
-    //2nd floor 3000
-    house.Walls.Add(new Wall(new Point(0, 0), new Point(5000, 0)));
-    house.Walls.Add(new Wall(new Point(0, 0), new Point(0, 4000)));
-}
-
-Console.WriteLine(house.ToString());    
-
-//height is an ambient context
-
-public sealed class BuildingContext : IDisposable // - ambient context - not thread safe - find solution for this.
+static void Draw(List<VectorObject> vectorObjects)
 {
-    public int WallHeight;
-    private static Stack<BuildingContext> stack = new Stack<BuildingContext>();
-
-    static BuildingContext()
+    foreach (var vo in vectorObjects)
     {
-        stack.Push(new BuildingContext(0));
-    }
-
-    public BuildingContext(int wallHeight)
-    {
-        WallHeight = wallHeight;
-        stack.Push(this);
-
-    }
-
-    public static BuildingContext Current => stack.Peek();
-
-    public void Dispose()
-    {
-        if (stack.Count > 1)
-            stack.Pop();
-    }
-}
-
-public class Builduing
-{
-    public List<Wall> Walls = new List<Wall>();
-
-    public override string ToString()
-    {
-        var sb = new StringBuilder();
-        foreach(var wall in Walls)
+        foreach (var line in vo)
         {
-            sb.Append(wall.ToString());
+            var adapter = new LineToPointAdapter(line);
+            adapter.ForEach(DrawPoint);
         }
-        return sb.ToString();
     }
+}
+
+
+// the interface we have
+static void DrawPoint(Point p)
+{
+    Console.Write(".");
 }
 
 public class Point
 {
-    private int x, y;
+    public int X;
+    public int Y;
+
     public Point(int x, int y)
     {
-        this.x = x;
-        this.y = y;
+        this.X = x;
+        this.Y = y;
     }
 
     public override string ToString()
     {
-        return $"{nameof(x)}: {x}, {nameof(y)}: {y}";    
+        return $"{nameof(X)}: {X}, {nameof(Y)}: {Y}";
     }
 }
 
-public class Wall
+
+public class Line
 {
-    public Point Start, End;
-    public int Height;
+    public Point Start;
+    public Point End;
 
-    public Wall(Point start, Point end)
+    public Line(Point start, Point end)
     {
-        Start = start;
-        End = end;
-        this.Height = BuildingContext.Current.WallHeight;
+        this.Start = start;
+        this.End = end;
     }
+}
 
-    public override string ToString()
+public class VectorObject : Collection<Line>
+{
+
+}
+
+public class VectorRectangle : VectorObject
+{
+    public VectorRectangle(int x, int y, int width, int height)
     {
-        return $"{nameof(Start)}: {Start}, {nameof(End)}: {End}, {nameof(Height)}: {Height}";
+        Add(new Line(new Point(x, y), new Point(x + width, y)));
+        Add(new Line(new Point(x + width, y), new Point(x + width, y + height)));
+        Add(new Line(new Point(x, y), new Point(x, y + height)));
+        Add(new Line(new Point(x, y + height), new Point(x + width, y + height)));
+    }
+}
+
+public class LineToPointAdapter : Collection<Point>
+{
+    private static int count = 0;
+
+    public LineToPointAdapter(Line line)
+    {
+        Console.WriteLine($"{++count}: Generating points for line [{line.Start.X},{line.Start.Y}]-[{line.End.X},{line.End.Y}] (no caching)");
+
+        int left = Math.Min(line.Start.X, line.End.X);
+        int right = Math.Max(line.Start.X, line.End.X);
+        int top = Math.Min(line.Start.Y, line.End.Y);
+        int bottom = Math.Max(line.Start.Y, line.End.Y);
+        int dx = right - left;
+        int dy = line.End.Y - line.Start.Y;
+
+        if (dx == 0)
+        {
+            for (int y = top; y <= bottom; ++y)
+            {
+                Add(new Point(left, y));
+            }
+        }
+        else if (dy == 0)
+        {
+            for (int x = left; x <= right; ++x)
+            {
+                Add(new Point(x, top));
+            }
+        }
     }
 }
