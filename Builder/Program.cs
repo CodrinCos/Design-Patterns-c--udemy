@@ -1,79 +1,51 @@
-﻿using Autofac;
+﻿using System.Text;
 
-//var raster = new RasterRenderer();
-//var vector = new VectorRenderer();
-//var circle = new Circle(vector, 5, 5, 5);
-//circle.Draw();
-//circle.Resize(2);
-//circle.Draw();
+var drawing = new GraphicObject { Name = "MyDrawing" };
+drawing.Children.Add(new Square { Color = "Red"});
+drawing.Children.Add(new Circle { Color = "Yellow"});
 
-var cb = new ContainerBuilder();
-cb.RegisterType<VectorRenderer>().As<IRenderer>();
-cb.Register((c, p) => new Circle(c.Resolve<IRenderer>(),
-  p.Positional<float>(0)));
-using (var c = cb.Build())
+var group = new GraphicObject();
+group.Children.Add(new Circle { Color = "Blue" });
+group.Children.Add(new Square { Color = "Blue" });
+drawing.Children.Add(group);
+
+Console.WriteLine(drawing);
+
+class GraphicObject
 {
-    var circle = c.Resolve<Circle>(
-      new PositionalParameter(0, 5.0f)
-    );
-    circle.Draw();
-    circle.Resize(2);
-    circle.Draw();
-}
+    public virtual string Name { get; set; } = "Group";
+    public string Color;
 
-public interface IRenderer
-{
-    void RenderCircle(float radius);
-}
+    private Lazy<List<GraphicObject>> childreen = new Lazy<List<GraphicObject>>();
+    public List<GraphicObject> Children => childreen.Value;
 
-public class VectorRenderer : IRenderer
-{
-    public void RenderCircle(float radius)
+    private void Print(StringBuilder sb, int depth)
     {
-        Console.WriteLine($"Drawing a circle of radius {radius}");
+        sb.Append(new string('*', depth))
+            .Append(string.IsNullOrEmpty(Color) ? string.Empty : Color)
+            .AppendLine(Name);
+
+        foreach(var child in Children)
+        {
+            child.Print(sb, depth + 1);
+        }
+    }
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+        Print(sb, 0);
+        return sb.ToString();
     }
 }
 
-public class RasterRenderer : IRenderer
+class Circle : GraphicObject
 {
-    public void RenderCircle(float radius)
-    {
-        Console.WriteLine($"Drawing pixels for circle of radius {radius}");
-    }
+    public override string Name => "Circle";
 }
 
-public abstract class Shape
+class Square : GraphicObject
 {
-    protected IRenderer renderer;
-
-    // a bridge between the shape that's being drawn and
-    // the component which actually draws it
-    public Shape(IRenderer renderer)
-    {
-        this.renderer = renderer;
-    }
-
-    public abstract void Draw();
-    public abstract void Resize(float factor);
-}
-
-public class Circle : Shape
-{
-    private float radius;
-
-    public Circle(IRenderer renderer, float radius) : base(renderer)
-    {
-        this.radius = radius;
-    }
-
-    public override void Draw()
-    {
-        renderer.RenderCircle(radius);
-    }
-
-    public override void Resize(float factor)
-    {
-        radius *= factor;
-    }
+    public override string Name => "Square";
 }
 
