@@ -1,51 +1,61 @@
-﻿using System.Text;
+﻿
+using System.Collections;
+using System.Collections.ObjectModel;
 
-var drawing = new GraphicObject { Name = "MyDrawing" };
-drawing.Children.Add(new Square { Color = "Red"});
-drawing.Children.Add(new Circle { Color = "Yellow"});
+var neuron1 = new Neuron();
+var neuron2 = new Neuron();
 
-var group = new GraphicObject();
-group.Children.Add(new Circle { Color = "Blue" });
-group.Children.Add(new Square { Color = "Blue" });
-drawing.Children.Add(group);
+neuron1.ConnectTo(neuron2); // 1
 
-Console.WriteLine(drawing);
+var layer1 = new NeuronLayer();
+var layer2 = new NeuronLayer();
 
-class GraphicObject
+// 4 - to connect neuron to neuron or to layers.
+
+neuron1.ConnectTo(layer1);
+layer1.ConnectTo(layer2);
+
+
+public static class ExtensionMethods
 {
-    public virtual string Name { get; set; } = "Group";
-    public string Color;
-
-    private Lazy<List<GraphicObject>> childreen = new Lazy<List<GraphicObject>>();
-    public List<GraphicObject> Children => childreen.Value;
-
-    private void Print(StringBuilder sb, int depth)
+    public static void ConnectTo(this IEnumerable<Neuron> self, IEnumerable<Neuron> other)
     {
-        sb.Append(new string('*', depth))
-            .Append(string.IsNullOrEmpty(Color) ? string.Empty : Color)
-            .AppendLine(Name);
+        if (ReferenceEquals(self, other)) return;
 
-        foreach(var child in Children)
+        foreach(var from in self)
+        foreach(var to in other)
         {
-            child.Print(sb, depth + 1);
+            from.Out.Add(to);
+            to.In.Add(to);
         }
     }
+}
 
-    public override string ToString()
+public class NeuronRing : List<Neuron>
+{
+
+}
+
+public class NeuronLayer: Collection<Neuron>
+{
+    
+}
+
+public class Neuron : IEnumerable<Neuron>
+{
+    public float Value;
+
+    public List<Neuron> In, Out;
+
+    //return as an enumertator
+    public IEnumerator<Neuron> GetEnumerator()
     {
-        var sb = new StringBuilder();
-        Print(sb, 0);
-        return sb.ToString();
+        yield return this;
     }
-}
 
-class Circle : GraphicObject
-{
-    public override string Name => "Circle";
-}
-
-class Square : GraphicObject
-{
-    public override string Name => "Square";
+    IEnumerator IEnumerable.GetEnumerator()
+    {
+        return GetEnumerator();
+    }
 }
 
