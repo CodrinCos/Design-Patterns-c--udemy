@@ -1,54 +1,49 @@
-﻿public class Bird
+﻿
+Dragon d = new Dragon { Age = 5 };
+
+//to be able to access the crawl the dragon needs to be casted ((ILizard)d).Crawl()
+//or
+if (d is IBird bird)
 {
-    public int Weight { get; set; }
-    public void Fly()
+    bird.Fly();
+}
+
+if (d is ILizard lizard)
+{
+    lizard.Crawl();
+}
+
+
+
+public interface ICreature
+{
+    int Age { get; set;}
+}
+
+public interface IBird: ICreature
+{
+    void Fly()
     {
-        Console.WriteLine("I am flying");
+        if (Age >= 10) { Console.WriteLine("I am flying!"); }
     }
 }
 
-public interface IBirth
+public interface ILizard: ICreature
 {
-    int Weight { get; set; }
-    void Fly();
-}
-
-public class Lizard
-{
-    public int Weight { get; set; }
-    public void Crawl()
+    void Crawl() 
     {
-        Console.WriteLine("I am crawling");
+        if (Age < 10) Console.WriteLine("I am crawling");
     }
 }
-
-public interface ILizard
+public class Organism { }
+public class Dragon : Organism, ICreature, IBird, ILizard //ICreature can be deleted, but does not matter
 {
-    int Weight { get; set; }
-    void Crawl();
+    public int Age { get; set; }
 }
 
-public class Dragon : ILizard, IBirth
-{
-    private Bird bird;
-    private Lizard lizard;
-    private int wight;
+//No option to inherit from dragon
+//SmartDragon(Dragon) - wrap the dragon
+//extension method - for extra implementation
+//C#8 default interface methods
 
-    public Dragon(Bird bird, Lizard lizard)
-    {
-        this.bird = bird ?? throw new ArgumentNullException(paramName: nameof(bird));
-        this.lizard = lizard ?? throw new ArgumentNullException(paramName: nameof(lizard));
-    }
 
-    public int Weight { get => wight; set { wight = value; bird.Weight = value; lizard.Weight = value; } }
-
-    public void Crawl()
-    {
-        lizard.Crawl();
-    }
-
-    public void Fly()
-    {
-        bird.Fly();
-    }
-}
