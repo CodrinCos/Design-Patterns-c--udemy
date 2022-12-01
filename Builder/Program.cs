@@ -1,49 +1,75 @@
-﻿
-Dragon d = new Dragon { Age = 5 };
+﻿var square = new Square(2.23f);
 
-//to be able to access the crawl the dragon needs to be casted ((ILizard)d).Crawl()
-//or
-if (d is IBird bird)
+Console.WriteLine(square.AsString());
+
+var redSquare = new ColoredShape(square, "red");
+
+Console.WriteLine(redSquare.AsString());
+
+var redhalftransparent = new TransparentShape(redSquare, 0.5f);
+
+Console.WriteLine(redhalftransparent.AsString());
+
+public class TransparentShape : IShape
 {
-    bird.Fly();
-}
+    private IShape shape;
+    private float transparency;
 
-if (d is ILizard lizard)
-{
-    lizard.Crawl();
-}
-
-
-
-public interface ICreature
-{
-    int Age { get; set;}
-}
-
-public interface IBird: ICreature
-{
-    void Fly()
+    public TransparentShape(IShape shape, float transparency)
     {
-        if (Age >= 10) { Console.WriteLine("I am flying!"); }
+        this.shape = shape;
+        this.transparency = transparency;
+    }
+
+    public string AsString() => $"{shape.AsString()} has {transparency * 100.0}% transparency";
+}
+
+
+public class ColoredShape: IShape
+{
+    private IShape shape;
+
+    private string color;
+
+    public ColoredShape(IShape shape, string color)
+    {
+        this.shape = shape;
+        this.color = color;
+    }
+
+    public string AsString() => $"{shape.AsString()} has the color {color}";
+}
+
+public interface IShape
+{
+    string AsString();
+}
+
+public class Circle : IShape
+{
+    private float radius;
+
+    public Circle(float radius)
+    {
+        this.radius = radius;
+    }
+
+    public string AsString() => $"A circle with radius {radius}";
+
+    public void Resize(float factorOfResizing)
+    {
+        radius *= factorOfResizing;
     }
 }
 
-public interface ILizard: ICreature
+public class Square : IShape
 {
-    void Crawl() 
+    private float side;
+
+    public Square(float side)
     {
-        if (Age < 10) Console.WriteLine("I am crawling");
+        this.side = side;
     }
+
+    public string AsString() => $"A square with side {side}";
 }
-public class Organism { }
-public class Dragon : Organism, ICreature, IBird, ILizard //ICreature can be deleted, but does not matter
-{
-    public int Age { get; set; }
-}
-
-//No option to inherit from dragon
-//SmartDragon(Dragon) - wrap the dragon
-//extension method - for extra implementation
-//C#8 default interface methods
-
-
