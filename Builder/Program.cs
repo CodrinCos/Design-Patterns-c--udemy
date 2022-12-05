@@ -1,77 +1,98 @@
 ﻿
-using NUnit.Framework;
 
-[TestFixture]
-public class Demo
+using System.Text;
+
+var ft = new FormattedText("This is the example. asd asd asd asd");
+
+ft.Capitalize(10, 15);
+
+Console.WriteLine(ft);
+
+var bft = new BetterFormattedText("This is the example. asd asd asd asd");
+
+bft.GetRange(10, 15).Capitalized = true;
+
+Console.WriteLine(bft);
+
+
+public class BetterFormattedText
 {
-	[Test]
-	public void TestUser() //1655033
-	{
-		var firstNames = Enumerable.Range(0, 100).Select(_ => RandomString());
-		var lastNames = Enumerable.Range(0, 100).Select(_ => RandomString());
+    private string plainText;
+    private List<TextRange> formatting = new List<TextRange>();
 
-		var users = new List<User>();
-
-		foreach(var firstname in firstNames)
-			foreach(var lastname in lastNames)
-				users.Add(new User($"{firstname} {lastname}"));
-
-		ForceGC();
-
-		//add the nuget package and check for memory...
+    public BetterFormattedText(string plainText)
+    {
+        this.plainText = plainText;
     }
 
-	//testUser2 - 1296991
+    public TextRange GetRange(int start, int end)
+    {
+        var range = new TextRange { Start= start, End = end };
 
-	private void ForceGC()
-	{
-		GC.Collect();
-		GC.WaitForPendingFinalizers();
-		GC.Collect();
-	}
+        formatting.Add(range);
+        return range;
+    }
 
-	private string RandomString()
-	{
-		Random rand = new Random();
+    public class TextRange
+    {
+        public int Start, End;
+        public bool Capitalized, Bold, Italic;
 
-		return new string(Enumerable.Range(0, 10).Select(i => (char)('a' + rand.Next(26))).ToArray());
-	}
+        public bool Covers(int position)
+        {
+            return position >= Start && position <= End;
+        }
+    }
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder();
+
+        for(var i = 0; i< plainText.Length; i++)
+        {
+            var c = plainText[i];
+
+            foreach(var range in formatting)
+            {
+                if (range.Covers(i) && range.Capitalized)
+                    c = char.ToUpper(c);
+                sb.Append(c);
+            }
+        }
+
+        return sb.ToString();
+    }
 }
 
-public class User
+public class FormattedText
 {
-    string fullName;
+    private readonly string plainText;
+    private bool[] capitalize;
 
-	public User(string fullName)
-	{
-		this.fullName = fullName;
-	}
+    public FormattedText(string plainText)
+    {
+        this.plainText = plainText;
+        this.capitalize = new bool[plainText.Length];
+    }
+
+    public void Capitalize(int start, int end)
+    {
+        for(int i = start; i < end; i++) 
+        {
+            capitalize[i] = true;
+        }
+    }
+
+    public override string ToString() 
+    {
+        var sb = new StringBuilder();
+
+        for(var i = 0; i < plainText.Length; i++) 
+        {
+            var c = plainText[i];
+            sb.Append(capitalize[i] ? char.ToUpper(c) : c); 
+        }
+
+        return sb.ToString();
+    }
 }
-
-public class User2
-{
-	static List<string> strings = new List<string>();
-	private int[] names;
-
-	public User2(string fullName)
-	{
-		int getOrAdd(string s)
-		{
-			int idx = strings.IndexOf(s);
-			if (idx != -1) return idx;
-			else
-			{
-				strings.Add(s);
-				return strings.Count - 1;
-			}
-		}
-
-		names = fullName.Split(' ').Select(getOrAdd).ToArray();
-	}
-
-	public string FullName => string.Join(" ", names.Select(i => strings[i]));
-}
-
-
-
-//dotMemoryUnit - free framework that checks for the memory. (from JetBrains)
