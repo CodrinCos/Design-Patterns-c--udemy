@@ -1,63 +1,57 @@
-﻿//constructed over a primitive type
-//stronger typing
+﻿//combination between composite and proxy
+//sometimes create proxies for memory efficiency
 
-
-//50% = 0.5 100 
-
-//We want to achieve:
-using System.Diagnostics;
-
-Console.WriteLine(10f * 5.Percent());
-Console.WriteLine(2.Percent() + 5.Percent());
-
-
-public static class PercentageExtensions
+var creatures = new Creature[100];
+foreach (var c in creatures)
 {
-	public static Percentage Percent(this int value)
-	{
-		return new Percentage(value/100.0f);
-	}
-
-    public static Percentage Percent(this float value)
-    {
-        return new Percentage(value / 100.0f);
-    }
+    c.X++; // not memory-efficient
 }
 
-[DebuggerDisplay("{value*100.0f}%")]
-public struct Percentage
+var creatures2 = new Creatures(100);
+foreach (var c in creatures2)
 {
-    private readonly float value;
+    c.X++;
+}
 
-	public Percentage(float value)
-	{
-		this.value = value;
-	}
+class Creature
+{
+    public byte Age;
+    public int X, Y;
+}
 
-	//all the operators needs to be added if needed
-	public static float operator *(float f, Percentage p)
-	{
-		return f * p.value;
-	}
+class Creatures
+{
+    private readonly int size;
+    private byte[] age;
+    private int[] x, y;
 
-	public static Percentage operator +(Percentage a, Percentage b)
-	{
-		return new Percentage(a.value + b.value);
-	}
-
-    public override string ToString()
+    public Creatures(int size)
     {
-		return $"{value * 100}%";
+        this.size = size;
+        age = new byte[size];
+        x = new int[size];
+        y = new int[size];
     }
 
-    public override bool Equals(object? obj)
+    public struct CreatureProxy
     {
-        return obj is Percentage percentage &&
-               value == percentage.value;
+        private readonly Creatures creatures;
+        private readonly int index;
+
+        public CreatureProxy(Creatures creatures, int index)
+        {
+            this.creatures = creatures;
+            this.index = index;
+        }
+
+        public ref byte Age => ref creatures.age[index];
+        public ref int X => ref creatures.x[index];
+        public ref int Y => ref creatures.y[index];
     }
 
-    public override int GetHashCode()
+    public IEnumerator<CreatureProxy> GetEnumerator()
     {
-        return HashCode.Combine(value);
+        for (int pos = 0; pos < size; ++pos)
+            yield return new CreatureProxy(this, pos);
     }
 }
