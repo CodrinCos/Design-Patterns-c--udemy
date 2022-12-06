@@ -1,98 +1,48 @@
-﻿
+﻿ICar car = new CarProxy(new Driver(12));
 
-using System.Text;
+car.Drive();
 
-var ft = new FormattedText("This is the example. asd asd asd asd");
-
-ft.Capitalize(10, 15);
-
-Console.WriteLine(ft);
-
-var bft = new BetterFormattedText("This is the example. asd asd asd asd");
-
-bft.GetRange(10, 15).Capitalized = true;
-
-Console.WriteLine(bft);
-
-
-public class BetterFormattedText
+public interface ICar
 {
-    private string plainText;
-    private List<TextRange> formatting = new List<TextRange>();
+    void Drive();
+}
 
-    public BetterFormattedText(string plainText)
+public class Car : ICar
+{
+    public void Drive()
     {
-        this.plainText = plainText;
-    }
-
-    public TextRange GetRange(int start, int end)
-    {
-        var range = new TextRange { Start= start, End = end };
-
-        formatting.Add(range);
-        return range;
-    }
-
-    public class TextRange
-    {
-        public int Start, End;
-        public bool Capitalized, Bold, Italic;
-
-        public bool Covers(int position)
-        {
-            return position >= Start && position <= End;
-        }
-    }
-
-    public override string ToString()
-    {
-        var sb = new StringBuilder();
-
-        for(var i = 0; i< plainText.Length; i++)
-        {
-            var c = plainText[i];
-
-            foreach(var range in formatting)
-            {
-                if (range.Covers(i) && range.Capitalized)
-                    c = char.ToUpper(c);
-                sb.Append(c);
-            }
-        }
-
-        return sb.ToString();
+        Console.WriteLine("Car is being driven");
     }
 }
 
-public class FormattedText
+public class Driver
 {
-    private readonly string plainText;
-    private bool[] capitalize;
-
-    public FormattedText(string plainText)
+    public int Age;
+    public Driver(int age)
     {
-        this.plainText = plainText;
-        this.capitalize = new bool[plainText.Length];
+        Age = age;
+    }
+}
+
+public class CarProxy : ICar
+{
+    private Driver driver;
+    private Car car = new Car();
+
+    public CarProxy(Driver driver)
+    {
+        this.driver = driver;
     }
 
-    public void Capitalize(int start, int end)
+    public void Drive()
     {
-        for(int i = start; i < end; i++) 
+        if (driver.Age >= 18)
         {
-            capitalize[i] = true;
+            car.Drive();
         }
-    }
-
-    public override string ToString() 
-    {
-        var sb = new StringBuilder();
-
-        for(var i = 0; i < plainText.Length; i++) 
+        else
         {
-            var c = plainText[i];
-            sb.Append(capitalize[i] ? char.ToUpper(c) : c); 
+            Console.WriteLine("too young");
         }
-
-        return sb.ToString();
     }
 }
