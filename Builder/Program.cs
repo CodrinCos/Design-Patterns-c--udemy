@@ -1,79 +1,63 @@
-﻿
-var c = new Creature();
-c.Agility = 10; // c.set_Agility(10) - this will not happen
-				// replacing this with brand new
-				// c.Agility = new Property<int>(10)
-c.Agility = 10;
-public class Creature
+﻿//constructed over a primitive type
+//stronger typing
+
+
+//50% = 0.5 100 
+
+//We want to achieve:
+using System.Diagnostics;
+
+Console.WriteLine(10f * 5.Percent());
+Console.WriteLine(2.Percent() + 5.Percent());
+
+
+public static class PercentageExtensions
 {
-	//public Property<int> Agility { get; set; } // this is not the right approach due to c# constraints and because we cannot overwrite = operator for setter.
-	//the above has to be rewritten as:
-	private Property<int> agility = new Property<int>();
-	public int Agility
+	public static Percentage Percent(this int value)
 	{
-		get => agility.Value;
-		set => agility.Value = value;
-		//this is not required in c++ because you can specify what should happen when "="
+		return new Percentage(value/100.0f);
 	}
+
+    public static Percentage Percent(this float value)
+    {
+        return new Percentage(value / 100.0f);
+    }
 }
 
-public class Property<T> where T : new()
+[DebuggerDisplay("{value*100.0f}%")]
+public struct Percentage
 {
-    private T value;
+    private readonly float value;
 
-	public T Value
-	{
-		get => value;
-		set
-		{
-			if (Equals(this.value, value)) return;
-			Console.WriteLine($"Assigning value to {value}");
-			this.value = value;
-		}
-	}
-
-	//Creates an instance of T
-	//this(default(T)) - this has null as default value for strings for example
-	public Property() : this(Activator.CreateInstance<T>())
-	{
-
-	}
-
-	public Property(T value)
+	public Percentage(float value)
 	{
 		this.value = value;
 	}
 
-	public static implicit operator T(Property<T> property)
+	//all the operators needs to be added if needed
+	public static float operator *(float f, Percentage p)
 	{
-		return property.Value; // int n = p_int
+		return f * p.value;
 	}
 
-	public static implicit operator Property<T>(T value)
+	public static Percentage operator +(Percentage a, Percentage b)
 	{
-		return new Property<T>(value); //Property<int> p = 123;
+		return new Percentage(a.value + b.value);
 	}
 
-	public bool Equals(Property<T> other)
-	{
-		if (ReferenceEquals(null, other)) return false;
-		if (ReferenceEquals(this, other)) return true;
-
-		return EqualityComparer<T>.Default.Equals(value, other.value);
-	}
-
-    public override bool Equals(object obj)
+    public override string ToString()
     {
-        if (ReferenceEquals(null, obj)) return false;
-		if (ReferenceEquals(this, obj)) return true;
+		return $"{value * 100}%";
+    }
 
-		if (obj.GetType() != this.GetType()) return false;
-
-		return Equals((Property<T>)obj);
+    public override bool Equals(object? obj)
+    {
+        return obj is Percentage percentage &&
+               value == percentage.value;
     }
 
     public override int GetHashCode()
     {
-		return value.GetHashCode();
+        return HashCode.Combine(value);
     }
 }
