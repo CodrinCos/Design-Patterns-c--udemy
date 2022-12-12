@@ -1,66 +1,116 @@
 ﻿
+using ImpromptuInterface;
+using System.Dynamic;
+using System.Text;
 
-public class MasonrySettings
+//var ba = new BankAccount();
+var ba = Log<BankAccount>.As<IBankAccount>();
+
+ba.Deposit(100);
+ba.Withdraw(50);
+
+Console.WriteLine(ba);
+
+public interface IBankAccount
 {
-    private readonly bool[] flags = new bool[3];
+    void Deposit(int amount);
+    bool Withdraw(int amount);
+    string ToString();
+}
 
-    public bool? All
+public class BankAccount : IBankAccount
+{
+    private int balance;
+    private int overdraftLimit = -500;
+
+    public void Deposit(int amount)
+    {
+        balance += amount;
+        Console.WriteLine($"Deposited ${amount}, balance is now {balance}");
+    }
+
+    public bool Withdraw(int amount)
+    {
+        if (balance - amount >= overdraftLimit)
+        {
+            balance -= amount;
+            Console.WriteLine($"Withdrew ${amount}, balance is now {balance}");
+            return true;
+        }
+        return false;
+    }
+
+    public override string ToString()
+    {
+        return $"{nameof(balance)}: {balance}";
+    }
+}
+
+public class Log<T> : DynamicObject where T : class, new()
+{
+    private readonly T subject;
+    private Dictionary<string, int> methodCallCount =
+      new Dictionary<string, int>();
+
+    protected Log(T subject)
+    {
+        this.subject = subject ?? throw new ArgumentNullException(paramName: nameof(subject));
+    }
+
+    // factory method
+    public static I As<I>(T subject) where I : class
+    {
+        if (!typeof(I).IsInterface)
+            throw new ArgumentException("I must be an interface type");
+
+        // duck typing here!
+        return new Log<T>(subject).ActLike<I>();
+    }
+
+    public static I As<I>() where I : class
+    {
+        if (!typeof(I).IsInterface)
+            throw new ArgumentException("I must be an interface type");
+
+        // duck typing here!
+        return new Log<T>(new T()).ActLike<I>();
+    }
+
+    public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
+    {
+        try
+        {
+            // logging
+            Console.WriteLine($"Invoking {subject.GetType().Name}.{binder.Name} with arguments [{string.Join(",", args)}]");
+
+            // more logging
+            if (methodCallCount.ContainsKey(binder.Name)) methodCallCount[binder.Name]++;
+            else methodCallCount.Add(binder.Name, 1);
+
+            result = subject.GetType().GetMethod(binder.Name).Invoke(subject, args);
+            return true;
+        }
+        catch
+        {
+            result = null;
+            return false;
+        }
+    }
+
+    public string Info
     {
         get
         {
-            if (flags.Skip(1).All(f => f == flags[0])) return flags[0];
-
-            return null;
-        }
-        set
-        {
-            if (!value.HasValue) return;
-
-            for(int i = 0; i<flags.Length; i++)
-            {
-                flags[i] = value.Value;
-            }
+            var sb = new StringBuilder();
+            foreach (var kv in methodCallCount)
+                sb.AppendLine($"{kv.Key} called {kv.Value} time(s)");
+            return sb.ToString();
         }
     }
 
-    public bool Pillars
+    // will not be proxied automatically
+    public override string ToString()
     {
-        get => flags[0];
-        set => flags[0] = value;
+        return $"{Info}{subject}";
     }
-    public bool Walls
-    {
-        get => flags[1];
-        set => flags[1] = value;
-    }
-    public bool Floors
-    {
-        get => flags[2];
-        set => flags[2] = value;
-    }
-
-    //For this code, its hard to have new props, because they need to be added. The solution is array backed props.
-    //public bool? All 
-    //{
-    //    get
-    //    {
-    //        if (Pillars == Walls && Walls == Floors)
-    //        {
-    //            return Pillars;
-    //        }
-
-    //        return null;
-    //    }
-
-    //    set
-    //    {
-    //        if (value != null)
-    //        {
-    //            Pillars = value.Value;
-    //            Walls = value.Value;
-    //            Floors = value.Value;
-    //        }
-    //    } 
-    //}
-    //public bool Pillars, Walls, Floors;
 }
