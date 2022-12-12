@@ -1,57 +1,66 @@
-﻿//combination between composite and proxy
-//sometimes create proxies for memory efficiency
+﻿
 
-var creatures = new Creature[100];
-foreach (var c in creatures)
+public class MasonrySettings
 {
-    c.X++; // not memory-efficient
-}
+    private readonly bool[] flags = new bool[3];
 
-var creatures2 = new Creatures(100);
-foreach (var c in creatures2)
-{
-    c.X++;
-}
-
-class Creature
-{
-    public byte Age;
-    public int X, Y;
-}
-
-class Creatures
-{
-    private readonly int size;
-    private byte[] age;
-    private int[] x, y;
-
-    public Creatures(int size)
+    public bool? All
     {
-        this.size = size;
-        age = new byte[size];
-        x = new int[size];
-        y = new int[size];
-    }
-
-    public struct CreatureProxy
-    {
-        private readonly Creatures creatures;
-        private readonly int index;
-
-        public CreatureProxy(Creatures creatures, int index)
+        get
         {
-            this.creatures = creatures;
-            this.index = index;
+            if (flags.Skip(1).All(f => f == flags[0])) return flags[0];
+
+            return null;
         }
+        set
+        {
+            if (!value.HasValue) return;
 
-        public ref byte Age => ref creatures.age[index];
-        public ref int X => ref creatures.x[index];
-        public ref int Y => ref creatures.y[index];
+            for(int i = 0; i<flags.Length; i++)
+            {
+                flags[i] = value.Value;
+            }
+        }
     }
 
-    public IEnumerator<CreatureProxy> GetEnumerator()
+    public bool Pillars
     {
-        for (int pos = 0; pos < size; ++pos)
-            yield return new CreatureProxy(this, pos);
+        get => flags[0];
+        set => flags[0] = value;
     }
+    public bool Walls
+    {
+        get => flags[1];
+        set => flags[1] = value;
+    }
+    public bool Floors
+    {
+        get => flags[2];
+        set => flags[2] = value;
+    }
+
+    //For this code, its hard to have new props, because they need to be added. The solution is array backed props.
+    //public bool? All 
+    //{
+    //    get
+    //    {
+    //        if (Pillars == Walls && Walls == Floors)
+    //        {
+    //            return Pillars;
+    //        }
+
+    //        return null;
+    //    }
+
+    //    set
+    //    {
+    //        if (value != null)
+    //        {
+    //            Pillars = value.Value;
+    //            Walls = value.Value;
+    //            Floors = value.Value;
+    //        }
+    //    } 
+    //}
+    //public bool Pillars, Walls, Floors;
 }
