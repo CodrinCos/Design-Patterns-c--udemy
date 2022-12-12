@@ -1,116 +1,87 @@
 ﻿
-using ImpromptuInterface;
-using System.Dynamic;
-using System.Text;
+//mvvm
 
-//var ba = new BankAccount();
-var ba = Log<BankAccount>.As<IBankAccount>();
+//model - don't want validation etc.
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 
-ba.Deposit(100);
-ba.Withdraw(50);
-
-Console.WriteLine(ba);
-
-public interface IBankAccount
+public class Person
 {
-    void Deposit(int amount);
-    bool Withdraw(int amount);
-    string ToString();
+    public string FirstName, LastName;
+
+
 }
 
-public class BankAccount : IBankAccount
+//view = UI
+
+//viewmodel - place for change notification
+//replicating the interface
+public class PersonViewModel
+	: INotifyPropertyChanged
 {
-    private int balance;
-    private int overdraftLimit = -500;
+	private readonly Person person;
+	public PersonViewModel(Person person)
+	{
+		this.person = person;
+	}
 
-    public void Deposit(int amount)
-    {
-        balance += amount;
-        Console.WriteLine($"Deposited ${amount}, balance is now {balance}");
-    }
-
-    public bool Withdraw(int amount)
-    {
-        if (balance - amount >= overdraftLimit)
-        {
-            balance -= amount;
-            Console.WriteLine($"Withdrew ${amount}, balance is now {balance}");
-            return true;
-        }
-        return false;
-    }
-
-    public override string ToString()
-    {
-        return $"{nameof(balance)}: {balance}";
-    }
-}
-
-public class Log<T> : DynamicObject where T : class, new()
-{
-    private readonly T subject;
-    private Dictionary<string, int> methodCallCount =
-      new Dictionary<string, int>();
-
-    protected Log(T subject)
-    {
-        this.subject = subject ?? throw new ArgumentNullException(paramName: nameof(subject));
-    }
-
-    // factory method
-    public static I As<I>(T subject) where I : class
-    {
-        if (!typeof(I).IsInterface)
-            throw new ArgumentException("I must be an interface type");
-
-        // duck typing here!
-        return new Log<T>(subject).ActLike<I>();
-    }
-
-    public static I As<I>() where I : class
-    {
-        if (!typeof(I).IsInterface)
-            throw new ArgumentException("I must be an interface type");
-
-        // duck typing here!
-        return new Log<T>(new T()).ActLike<I>();
-    }
-
-    public override bool TryInvokeMember(InvokeMemberBinder binder, object[] args, out object result)
-    {
-        try
-        {
-            // logging
-            Console.WriteLine($"Invoking {subject.GetType().Name}.{binder.Name} with arguments [{string.Join(",", args)}]");
-
-            // more logging
-            if (methodCallCount.ContainsKey(binder.Name)) methodCallCount[binder.Name]++;
-            else methodCallCount.Add(binder.Name, 1);
-
-            result = subject.GetType().GetMethod(binder.Name).Invoke(subject, args);
-            return true;
-        }
-        catch
-        {
-            result = null;
-            return false;
+	public string FirstName
+	{
+		get => person.FirstName;
+		set
+		{
+			if (person.FirstName == value) return;
+			person.FirstName = value;
+			OnPropertyChanged();
+            OnPropertyChanged(nameof(FullName));
         }
     }
 
-    public string Info
+    public string LastName
     {
-        get
+        get => person.LastName;
+        set
         {
-            var sb = new StringBuilder();
-            foreach (var kv in methodCallCount)
-                sb.AppendLine($"{kv.Key} called {kv.Value} time(s)");
-            return sb.ToString();
+            if (person.LastName == value) return;
+            person.LastName = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(FullName));
         }
     }
 
-    // will not be proxied automatically
-    public override string ToString()
+    //if we add this will become a decorator and not a proxy anymore
+    public string FullName
     {
-        return $"{Info}{subject}";
+        get => $"{FirstName} {LastName}".Trim();
+        set
+        {
+            if (value == null)
+            {
+                FirstName = LastName = null;
+                return;
+            }
+            var items = value.Split();
+
+            if (items.Length > 0)
+            {
+                FirstName = items[0];
+            }
+
+            if (items.Length > 1)
+            {
+                FirstName = items[1];
+            }
+            OnPropertyChanged(nameof(FullName));
+
+        }
+    }
+
+    public event PropertyChangedEventHandler PropertyChanged;
+
+    protected virtual void OnPropertyChanged(
+      [CallerMemberName] string propertyName = null)
+    {
+        PropertyChanged?.Invoke(this,
+          new PropertyChangedEventArgs(propertyName));
     }
 }
