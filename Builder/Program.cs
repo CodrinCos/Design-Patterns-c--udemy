@@ -7,7 +7,6 @@ using System.Text;
 
 namespace DotNetDesignPatternDemos.Structural.Proxy.BitFragging
 {
-
     public enum Op : byte
     {
         [Description("*")]
