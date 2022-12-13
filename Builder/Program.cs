@@ -1,175 +1,94 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Reflection;
-using System.Text;
+﻿var asd = new Creature("Goblin", 2, 2);
+Console.WriteLine(asd);
 
-namespace DotNetDesignPatternDemos.Structural.Proxy.BitFragging
+var root = new CreatureModifier(asd);
+
+Console.WriteLine("double attack");
+
+root.Add(new DoubleAttackModifier(asd));
+
+Console.WriteLine("Increase the defense");
+
+root.Add(new IncreaseDefenseeModifier(asd));
+
+root.Handle();
+
+Console.WriteLine(asd);
+
+public class Creature
 {
-    public enum Op : byte
+    public string Name;
+    public int Attack, Defense;
+
+    public Creature(string name, int attack, int defense)
     {
-        [Description("*")]
-        Mul = 0,
-        [Description("/")]
-        Div = 1,
-        [Description("+")]
-        Add = 2,
-        [Description("-")]
-        Sub = 3
+        Name = name;
+        Attack = attack;
+        Defense = defense;
     }
 
-    public static class OpImpl
+    public override string ToString()
     {
-        static OpImpl()
-        {
-            var type = typeof(Op);
-            foreach (Op op in Enum.GetValues(type))
-            {
-                MemberInfo[] memInfo = type.GetMember(op.ToString());
-                if (memInfo.Length > 0)
-                {
-                    var attrs = memInfo[0].GetCustomAttributes(
-                      typeof(DescriptionAttribute), false);
+        return $"{nameof(Name)}: {Name}, {nameof(Attack)}: {Attack}, {nameof(Defense)}: {Defense}";
+    }
+}
 
-                    if (attrs.Length > 0)
-                    {
-                        opNames[op] = ((DescriptionAttribute)attrs[0]).Description[0];
-                    }
-                }
-            }
-        }
+public class NoBonusModifier: CreatureModifier
+{
+    public NoBonusModifier(Creature creature) : base(creature)
+    {
 
-        private static readonly Dictionary<Op, char> opNames
-          = new Dictionary<Op, char>();
-
-        // notice the data types!
-        private static readonly Dictionary<Op, Func<double, double, double>> opImpl =
-          new Dictionary<Op, Func<double, double, double>>()
-          {
-              [Op.Mul] = ((x, y) => x * y),
-              [Op.Div] = ((x, y) => x / y),
-              [Op.Add] = ((x, y) => x + y),
-              [Op.Sub] = ((x, y) => x - y),
-          };
-
-        public static double Call(this Op op, int x, int y)
-        {
-            return opImpl[op](x, y);
-        }
-
-        public static char Name(this Op op)
-        {
-            return opNames[op];
-        }
     }
 
-    public class Problem
+    public override void Handle()
     {
-        private readonly List<int> numbers;
-        private readonly List<Op> ops;
+        //No base call, nobody is traversing the linked list;
+    }
+}
 
-        public Problem(IEnumerable<int> numbers, IEnumerable<Op> ops)
-        {
-            this.numbers = new List<int>(numbers);
-            this.ops = new List<Op>(ops);
-        }
+public class CreatureModifier
+{
+    protected Creature creature;
+    protected CreatureModifier next; //linked list
 
-        public int Eval()
-        {
-            var opGroups = new[]
-            {
-        new[] {Op.Mul, Op.Div},
-        new[] {Op.Add, Op.Sub}
-      };
-        startAgain:
-            foreach (var group in opGroups)
-            {
-                for (var idx = 0; idx < ops.Count; ++idx)
-                {
-                    if (group.Contains(ops[idx]))
-                    {
-                        // evaluate value
-                        var op = ops[idx];
-                        var result = op.Call(numbers[idx], numbers[idx + 1]);
-
-                        // assume all fractional results are wrong
-                        if (result != (int)result)
-                            return int.MinValue; // calculation won't work
-
-                        numbers[idx] = (int)result;
-                        numbers.RemoveAt(idx + 1);
-                        ops.RemoveAt(idx);
-                        if (numbers.Count == 1) return numbers[0];
-                        goto startAgain; // :)
-                    }
-                }
-            }
-
-            return numbers[0];
-        }
-
-        public override string ToString()
-        {
-            var sb = new StringBuilder();
-            int i = 0;
-
-            for (; i < ops.Count; ++i)
-            {
-                sb.Append(numbers[i]);
-                sb.Append(ops[i].Name());
-            }
-
-            sb.Append(numbers[i]);
-            return sb.ToString();
-        }
+    public CreatureModifier(Creature creature)
+    {
+        this.creature = creature;
     }
 
-    public class TwoBitSet
+    public void Add(CreatureModifier creatureModifier)
     {
-        // 64 bits --> 32 values
-        private readonly ulong data;
-
-        public TwoBitSet(ulong data)
-        {
-            this.data = data;
-        }
-
-        public byte this[int index]
-        {
-            get
-            {
-                var shift = index << 1;
-                ulong mask = (0b11U << shift);
-                return (byte)((data & mask) >> shift);
-            }
-        }
+        if (next != null) { next.Add(creatureModifier); }
+        else next = creatureModifier;
     }
 
-    class Program
+    public virtual void Handle() => next?.Handle();
+}
+
+public class DoubleAttackModifier: CreatureModifier
+{
+    public DoubleAttackModifier(Creature creature) : base(creature)
+    { }
+
+    public override void Handle()
     {
-        static void Main()
-        {
-            var numbers = new[] { 1, 3, 5, 7 };
-            int numberOfOps = numbers.Length - 1;
+        Console.WriteLine($"Doubling {creature.Name}'s attack");
+        creature.Attack *= 2;
+        base.Handle();
+    }
+}
 
-            for (int result = 0; result <= 10; ++result)
-            {
-                for (var key = 0UL; key < (1UL << 2 * numberOfOps); ++key)
-                {
-                    var tbs = new TwoBitSet(key);
-                    var ops = Enumerable.Range(0, numberOfOps)
-                      .Select(i => tbs[i]).Cast<Op>().ToArray();
-                    var problem = new Problem(numbers, ops);
-                    if (problem.Eval() == result)
-                    {
-                        Console.WriteLine($"{new Problem(numbers, ops)} = {result}");
-                        break;
-                    }
-                }
-            }
+public class IncreaseDefenseeModifier : CreatureModifier
+{
+    public IncreaseDefenseeModifier(Creature creature) : base (creature)
+    {
 
-            Console.ReadKey();
-        }
+    }
+
+    public override void Handle()
+    {
+        Console.WriteLine($"Increasing {creature.Name}'s defense)");
+        creature.Defense += 3;
+        base.Handle(); 
     }
 }
