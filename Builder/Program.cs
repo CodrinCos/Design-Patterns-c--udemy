@@ -1,94 +1,136 @@
-﻿var asd = new Creature("Goblin", 2, 2);
-Console.WriteLine(asd);
+﻿//in addition we are going to use the mediator, in between component
+var game = new Game();
+var goblin = new Creature(game, "Strong Goblin", 3, 3);
+Console.WriteLine(goblin);
 
-var root = new CreatureModifier(asd);
+using (new DoubleAttackModifier(game, goblin))
+{
+    Console.WriteLine(goblin);
+    using (new IncreaseDefenseModifier(game, goblin))
+    {
+        Console.WriteLine(goblin);
+    }
+}
 
-Console.WriteLine("double attack");
+Console.WriteLine(goblin);
 
-root.Add(new DoubleAttackModifier(asd));
 
-Console.WriteLine("Increase the defense");
+public class Query
+{
+    public string CreatureName;
 
-root.Add(new IncreaseDefenseeModifier(asd));
+    public enum Argument
+    {
+        Attack, Defense
+    }
 
-root.Handle();
+    public Argument WhatToQuery;
 
-Console.WriteLine(asd);
+    public int Value; // bidirectional
+
+    public Query(string creatureName, Argument whatToQuery, int value)
+    {
+        CreatureName = creatureName ?? throw new ArgumentNullException(paramName: nameof(creatureName));
+        WhatToQuery = whatToQuery;
+        Value = value;
+    }
+}
+
+public class Game // mediator pattern
+{
+    public event EventHandler<Query> Queries; // effectively a chain
+
+    public void PerformQuery(object sender, Query q)
+    {
+        Queries?.Invoke(sender, q);
+    }
+}
 
 public class Creature
 {
+    private Game game;
     public string Name;
-    public int Attack, Defense;
+    private int attack, defense;
 
-    public Creature(string name, int attack, int defense)
+    public Creature(Game game, string name, int attack, int defense)
     {
-        Name = name;
-        Attack = attack;
-        Defense = defense;
+        this.game = game ?? throw new ArgumentNullException(paramName: nameof(game));
+        this.Name = name ?? throw new ArgumentNullException(paramName: nameof(name));
+        this.attack = attack;
+        this.defense = defense;
     }
 
-    public override string ToString()
+    public int Attack
     {
-        return $"{nameof(Name)}: {Name}, {nameof(Attack)}: {Attack}, {nameof(Defense)}: {Defense}";
+        get
+        {
+            var q = new Query(Name, Query.Argument.Attack, attack);
+            game.PerformQuery(this, q);
+            return q.Value;
+        }
+    }
+
+    public int Defense
+    {
+        get
+        {
+            var q = new Query(Name, Query.Argument.Defense, defense);
+            game.PerformQuery(this, q);
+            return q.Value;
+        }
+    }
+
+    public override string ToString() // no game
+    {
+        return $"{nameof(Name)}: {Name}, {nameof(attack)}: {Attack}, {nameof(defense)}: {Defense}";
+        //                                                 ^^^^^^^^ using a property    ^^^^^^^^^
     }
 }
 
-public class NoBonusModifier: CreatureModifier
+public abstract class CreatureModifier : IDisposable
 {
-    public NoBonusModifier(Creature creature) : base(creature)
-    {
-
-    }
-
-    public override void Handle()
-    {
-        //No base call, nobody is traversing the linked list;
-    }
-}
-
-public class CreatureModifier
-{
+    protected Game game;
     protected Creature creature;
-    protected CreatureModifier next; //linked list
 
-    public CreatureModifier(Creature creature)
+    protected CreatureModifier(Game game, Creature creature)
     {
+        this.game = game;
         this.creature = creature;
+        game.Queries += Handle;
     }
 
-    public void Add(CreatureModifier creatureModifier)
+    protected abstract void Handle(object sender, Query q);
+
+    public void Dispose()
     {
-        if (next != null) { next.Add(creatureModifier); }
-        else next = creatureModifier;
-    }
-
-    public virtual void Handle() => next?.Handle();
-}
-
-public class DoubleAttackModifier: CreatureModifier
-{
-    public DoubleAttackModifier(Creature creature) : base(creature)
-    { }
-
-    public override void Handle()
-    {
-        Console.WriteLine($"Doubling {creature.Name}'s attack");
-        creature.Attack *= 2;
-        base.Handle();
+        game.Queries -= Handle;
     }
 }
 
-public class IncreaseDefenseeModifier : CreatureModifier
+public class DoubleAttackModifier : CreatureModifier
 {
-    public IncreaseDefenseeModifier(Creature creature) : base (creature)
+    public DoubleAttackModifier(Game game, Creature creature) : base(game, creature)
     {
-
     }
 
-    public override void Handle()
+    protected override void Handle(object sender, Query q)
     {
-        Console.WriteLine($"Increasing {creature.Name}'s defense)");
-        creature.Defense += 3;
-        base.Handle(); 
+        if (q.CreatureName == creature.Name &&
+            q.WhatToQuery == Query.Argument.Attack)
+            q.Value *= 2;
+    }
+}
+
+public class IncreaseDefenseModifier : CreatureModifier
+{
+    public IncreaseDefenseModifier(Game game, Creature creature) : base(game, creature)
+    {
+    }
+
+    protected override void Handle(object sender, Query q)
+    {
+        if (q.CreatureName == creature.Name &&
+            q.WhatToQuery == Query.Argument.Defense)
+            q.Value += 2;
     }
 }
