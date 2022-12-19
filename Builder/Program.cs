@@ -1,136 +1,106 @@
-﻿//in addition we are going to use the mediator, in between component
-var game = new Game();
-var goblin = new Creature(game, "Strong Goblin", 3, 3);
-Console.WriteLine(goblin);
+﻿
+var ba = new BankAccount();
 
-using (new DoubleAttackModifier(game, goblin))
+var commands = new List<BankAccountCommand>
 {
-    Console.WriteLine(goblin);
-    using (new IncreaseDefenseModifier(game, goblin))
-    {
-        Console.WriteLine(goblin);
-    }
+    new BankAccountCommand(ba, BankAccountCommand.Action.Deposit, 100),
+    new BankAccountCommand(ba, BankAccountCommand.Action.Withdrow, 50)
+};
+
+Console.WriteLine(ba);
+
+foreach(var c in commands)
+{
+    c.Call();
+    Console.WriteLine(ba);
 }
 
-Console.WriteLine(goblin);
-
-
-public class Query
+foreach(var c in Enumerable.Reverse(commands))
 {
-    public string CreatureName;
-
-    public enum Argument
-    {
-        Attack, Defense
-    }
-
-    public Argument WhatToQuery;
-
-    public int Value; // bidirectional
-
-    public Query(string creatureName, Argument whatToQuery, int value)
-    {
-        CreatureName = creatureName ?? throw new ArgumentNullException(paramName: nameof(creatureName));
-        WhatToQuery = whatToQuery;
-        Value = value;
-    }
+    c.Undo();
+    Console.WriteLine(ba);
 }
 
-public class Game // mediator pattern
+public class BankAccount
 {
-    public event EventHandler<Query> Queries; // effectively a chain
+    private int balance;
+    private int overdraftLimit = -500;
 
-    public void PerformQuery(object sender, Query q)
+    public void Deposit(int amount)
     {
-        Queries?.Invoke(sender, q);
-    }
-}
-
-public class Creature
-{
-    private Game game;
-    public string Name;
-    private int attack, defense;
-
-    public Creature(Game game, string name, int attack, int defense)
-    {
-        this.game = game ?? throw new ArgumentNullException(paramName: nameof(game));
-        this.Name = name ?? throw new ArgumentNullException(paramName: nameof(name));
-        this.attack = attack;
-        this.defense = defense;
+        balance += amount;
+        Console.WriteLine($"Deposit {amount}, balance is now {balance}");
     }
 
-    public int Attack
+    public bool Withdrow(int amount)
     {
-        get
+        if ( balance - amount >= overdraftLimit )
         {
-            var q = new Query(Name, Query.Argument.Attack, attack);
-            game.PerformQuery(this, q);
-            return q.Value;
+            balance -= amount;
+            Console.WriteLine($"Withdrew {amount}, balance is now {balance}");
+            return true;
+        }
+
+        return false;
+    }
+
+    public override string ToString()
+    {
+        return $"{nameof(balance)}: {balance}";
+    }
+}
+
+public interface ICommand
+{
+    void Call();
+    void Undo();
+}
+
+public class BankAccountCommand : ICommand
+{
+    private BankAccount account;
+    private bool succeeded;
+    public enum Action
+    {
+        Deposit, Withdrow
+    }
+
+    private Action action;
+    private int amount;
+
+    public BankAccountCommand(BankAccount account, Action action, int amount)
+    {
+        this.account = account;
+        this.action = action;
+        this.amount = amount;
+    }
+
+    public void Call()
+    {
+        switch(action)
+        {
+            case Action.Deposit:
+                account.Deposit(amount); 
+                succeeded= true;
+                break;
+            case Action.Withdrow:
+                succeeded = account.Withdrow(amount); 
+                break;
+            default: break;
         }
     }
 
-    public int Defense
+    public void Undo()
     {
-        get
+        if (!succeeded) { return; }
+
+        switch (action)
         {
-            var q = new Query(Name, Query.Argument.Defense, defense);
-            game.PerformQuery(this, q);
-            return q.Value;
+            case Action.Deposit:
+                account.Withdrow(amount); break;
+            case Action.Withdrow:
+                account.Deposit(amount); break;
+            default: break;
         }
-    }
-
-    public override string ToString() // no game
-    {
-        return $"{nameof(Name)}: {Name}, {nameof(attack)}: {Attack}, {nameof(defense)}: {Defense}";
-        //                                                 ^^^^^^^^ using a property    ^^^^^^^^^
-    }
-}
-
-public abstract class CreatureModifier : IDisposable
-{
-    protected Game game;
-    protected Creature creature;
-
-    protected CreatureModifier(Game game, Creature creature)
-    {
-        this.game = game;
-        this.creature = creature;
-        game.Queries += Handle;
-    }
-
-    protected abstract void Handle(object sender, Query q);
-
-    public void Dispose()
-    {
-        game.Queries -= Handle;
-    }
-}
-
-public class DoubleAttackModifier : CreatureModifier
-{
-    public DoubleAttackModifier(Game game, Creature creature) : base(game, creature)
-    {
-    }
-
-    protected override void Handle(object sender, Query q)
-    {
-        if (q.CreatureName == creature.Name &&
-            q.WhatToQuery == Query.Argument.Attack)
-            q.Value *= 2;
-    }
-}
-
-public class IncreaseDefenseModifier : CreatureModifier
-{
-    public IncreaseDefenseModifier(Game game, Creature creature) : base(game, creature)
-    {
-    }
-
-    protected override void Handle(object sender, Query q)
-    {
-        if (q.CreatureName == creature.Name &&
-            q.WhatToQuery == Query.Argument.Defense)
-            q.Value += 2;
     }
 }
