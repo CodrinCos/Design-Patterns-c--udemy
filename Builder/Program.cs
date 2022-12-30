@@ -1,106 +1,174 @@
 ﻿
-var ba = new BankAccount();
+using NUnit.Framework.Constraints;
+using System.Text;
+using System.Xml.Linq;
 
-var commands = new List<BankAccountCommand>
+var input = "(13+4)-(12+1)";
+var tokens = Demo.Lex(input);
+Console.WriteLine(string.Join("\t", tokens));
+
+var parsed = Demo.Parse(tokens);
+Console.WriteLine($"{input} = {parsed.Value}");
+
+
+public interface IElement
 {
-    new BankAccountCommand(ba, BankAccountCommand.Action.Deposit, 100),
-    new BankAccountCommand(ba, BankAccountCommand.Action.Withdrow, 50)
-};
-
-Console.WriteLine(ba);
-
-foreach(var c in commands)
-{
-    c.Call();
-    Console.WriteLine(ba);
+    int Value { get; }
 }
 
-foreach(var c in Enumerable.Reverse(commands))
+public class Integer : IElement
 {
-    c.Undo();
-    Console.WriteLine(ba);
-}
-
-public class BankAccount
-{
-    private int balance;
-    private int overdraftLimit = -500;
-
-    public void Deposit(int amount)
+    public Integer(int value)
     {
-        balance += amount;
-        Console.WriteLine($"Deposit {amount}, balance is now {balance}");
+        Value = value;
     }
 
-    public bool Withdrow(int amount)
-    {
-        if ( balance - amount >= overdraftLimit )
-        {
-            balance -= amount;
-            Console.WriteLine($"Withdrew {amount}, balance is now {balance}");
-            return true;
-        }
+    public int Value { get; }
+}
 
-        return false;
+public class BinaryOperation : IElement
+{
+    public enum Type
+    {
+        Addition,
+        Subtraction
+    }
+
+    public Type MyType;
+    public IElement Left, Right;
+
+    public int Value
+    {
+        get
+        {
+            switch (MyType)
+            {
+                case Type.Addition:
+                    return Left.Value + Right.Value;
+                case Type.Subtraction:
+                    return Left.Value - Right.Value;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+    }
+}
+
+public class Token
+{
+    public enum Type
+    {
+        Integer, Plus, Minus, Lparen, Rparen
+    }
+
+    public Type MyType;
+    public string Text;
+
+    public Token(Type type, string text)
+    {
+        MyType = type;
+        Text = text ?? throw new ArgumentNullException(paramName: nameof(text));
     }
 
     public override string ToString()
     {
-        return $"{nameof(balance)}: {balance}";
+        return $"`{Text}`";
     }
 }
 
-public interface ICommand
+public class Demo
 {
-    void Call();
-    void Undo();
-}
-
-public class BankAccountCommand : ICommand
-{
-    private BankAccount account;
-    private bool succeeded;
-    public enum Action
+    public static List<Token> Lex(string input)
     {
-        Deposit, Withdrow
-    }
+        var result = new List<Token>();
 
-    private Action action;
-    private int amount;
-
-    public BankAccountCommand(BankAccount account, Action action, int amount)
-    {
-        this.account = account;
-        this.action = action;
-        this.amount = amount;
-    }
-
-    public void Call()
-    {
-        switch(action)
+        for (int i = 0; i < input.Length; i++)
         {
-            case Action.Deposit:
-                account.Deposit(amount); 
-                succeeded= true;
-                break;
-            case Action.Withdrow:
-                succeeded = account.Withdrow(amount); 
-                break;
-            default: break;
+            switch (input[i])
+            {
+                case '+':
+                    result.Add(new Token(Token.Type.Plus, "+"));
+                    break;
+                case '-':
+                    result.Add(new Token(Token.Type.Minus, "-"));
+                    break;
+                case '(':
+                    result.Add(new Token(Token.Type.Lparen, "("));
+                    break;
+                case ')':
+                    result.Add(new Token(Token.Type.Rparen, ")"));
+                    break;
+                default:
+                    var sb = new StringBuilder(input[i].ToString());
+                    for (int j = i + 1; j < input.Length; ++j)
+                    {
+                        if (char.IsDigit(input[j]))
+                        {
+                            sb.Append(input[j]);
+                            ++i;
+                        }
+                        else
+                        {
+                            result.Add(new Token(Token.Type.Integer, sb.ToString()));
+                            break;
+                        }
+                    }
+                    break;
+            }
         }
+
+        return result;
     }
 
-    public void Undo()
+    public static IElement Parse(IReadOnlyList<Token> tokens)
     {
-        if (!succeeded) { return; }
-
-        switch (action)
+        var result = new BinaryOperation();
+        bool haveLHS = false;
+        for (int i = 0; i < tokens.Count; i++)
         {
-            case Action.Deposit:
-                account.Withdrow(amount); break;
-            case Action.Withdrow:
-                account.Deposit(amount); break;
-            default: break;
+            var token = tokens[i];
+
+            // look at the type of token
+            switch (token.MyType)
+            {
+                case Token.Type.Integer:
+                    var integer = new Integer(int.Parse(token.Text));
+                    if (!haveLHS)
+                    {
+                        result.Left = integer;
+                        haveLHS = true;
+                    }
+                    else
+                    {
+                        result.Right = integer;
+                    }
+                    break;
+                case Token.Type.Plus:
+                    result.MyType = BinaryOperation.Type.Addition;
+                    break;
+                case Token.Type.Minus:
+                    result.MyType = BinaryOperation.Type.Subtraction;
+                    break;
+                case Token.Type.Lparen:
+                    int j = i;
+                    for (; j < tokens.Count; ++j)
+                        if (tokens[j].MyType == Token.Type.Rparen)
+                            break; // found it!
+                                   // process subexpression w/o opening (
+                    var subexpression = tokens.Skip(i + 1).Take(j - i - 1).ToList();
+                    var element = Parse(subexpression);
+                    if (!haveLHS)
+                    {
+                        result.Left = element;
+                        haveLHS = true;
+                    }
+                    else result.Right = element;
+                    i = j; // advance
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
+        return result;
     }
 }
