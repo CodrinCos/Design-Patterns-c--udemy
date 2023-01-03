@@ -8,6 +8,46 @@ while(it.MoveNext())
     Console.Write("  ");
 }
 
+var tree = new BinaryTree<int>(root);
+Console.WriteLine(string.Join(",", tree.InOrder.Select(x => x.Value)));
+
+public class BinaryTree<T>
+{
+    private Node<T> root;
+
+    public BinaryTree(Node<T> root)
+    {
+        this.root = root;
+    }
+
+    public IEnumerable<Node<T>> InOrder
+    {
+        get
+        {
+            //Traverse
+            IEnumerable<Node<T>> Traverse(Node<T> current)
+            {
+                if (current.Left !=null)
+                {
+                    foreach (var left in Traverse(current.Left))
+                        yield return left;
+                }
+
+                yield return current;
+
+                if (current.Right != null)
+                {
+                    foreach (var left in Traverse(current.Right))
+                        yield return left;
+                }
+            }
+
+            foreach(var node in Traverse(root))
+                yield return node;
+        }
+    }
+}
+
 public class InOrderIterator<T>
 {
     private readonly Node<T> root;
