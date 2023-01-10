@@ -11,6 +11,10 @@ while(it.MoveNext())
 var tree = new BinaryTree<int>(root);
 Console.WriteLine(string.Join(",", tree.InOrder.Select(x => x.Value)));
 
+var tree2 = new BinaryTree<int>(root);
+foreach(var node in tree2)
+    Console.WriteLine(node.Value);
+
 public class BinaryTree<T>
 {
     private Node<T> root;
@@ -18,6 +22,12 @@ public class BinaryTree<T>
     public BinaryTree(Node<T> root)
     {
         this.root = root;
+    }
+
+    //addded to make BinaryTree an enumerable
+    public InOrderIterator<T> GetEnumerator()
+    {
+        return new InOrderIterator<T>(root);
     }
 
     public IEnumerable<Node<T>> InOrder
@@ -51,7 +61,7 @@ public class BinaryTree<T>
 public class InOrderIterator<T>
 {
     private readonly Node<T> root;
-    public Node<T> Current;
+    public Node<T> Current { get; set; }
     private bool yieldedStart;
 
     public InOrderIterator(Node<T> root)
