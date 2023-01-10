@@ -1,145 +1,59 @@
 ﻿using System;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using System.Threading;
+using System.Threading.Tasks;
 using Autofac;
+using DotNetDesignPatternDemos.Annotations;
+using MediatR;
 
-namespace RxDemos.ImplementingObservable.Broker
+namespace MediatrDemo
 {
-    public class Actor
+    public class PongResponse
     {
-        protected EventBroker broker;
+        public DateTime Timestamp;
 
-        public Actor(EventBroker broker)
+        public PongResponse(DateTime timestamp)
         {
-            this.broker = broker ?? throw new ArgumentNullException(paramName: nameof(broker));
+            Timestamp = timestamp;
         }
     }
 
-    public class FootballCoach : Actor
+    public class PingCommand : IRequest<PongResponse>
     {
-        public FootballCoach(EventBroker broker) : base(broker)
-        {
-            broker.OfType<PlayerScoredEvent>()
-              .Subscribe(
-                ps =>
-                {
-                    if (ps.GoalsScored < 3)
-                        Console.WriteLine($"Coach: well done, {ps.Name}!");
-                }
-              );
-
-            broker.OfType<PlayerSentOffEvent>()
-              .Subscribe(
-                ps =>
-                {
-                    if (ps.Reason == "violence")
-                        Console.WriteLine($"Coach: How could you, {ps.Name}?");
-                });
-        }
+        // nothing here
     }
 
-    public class Ref : Actor
+    [UsedImplicitly]
+    public class PingCommandHandler : IRequestHandler<PingCommand, PongResponse>
     {
-        public Ref(EventBroker broker) : base(broker)
+        public async Task<PongResponse> Handle(PingCommand request, CancellationToken cancellationToken)
         {
-            broker.OfType<PlayerEvent>()
-              .Subscribe(e =>
-              {
-                  if (e is PlayerScoredEvent scored)
-                      Console.WriteLine($"REF: player {scored.Name} has scored his {scored.GoalsScored} goal.");
-                  if (e is PlayerSentOffEvent sentOff)
-                      Console.WriteLine($"REF: player {sentOff.Name} sent off due to {sentOff.Reason}.");
-              });
-        }
-    }
-
-    public class FootballPlayer : Actor
-    {
-        private IDisposable sub;
-        public string Name { get; set; } = "Unknown Player";
-        public int GoalsScored { get; set; } = 0;
-
-        public void Score()
-        {
-            GoalsScored++;
-            broker.Publish(new PlayerScoredEvent { Name = Name, GoalsScored = GoalsScored });
-        }
-
-        public void AssaultReferee()
-        {
-            broker.Publish(new PlayerSentOffEvent { Name = Name, Reason = "violence" });
-
-        }
-
-        public FootballPlayer(EventBroker broker, string name) : base(broker)
-        {
-            if (name == null)
-            {
-                throw new ArgumentNullException(paramName: nameof(name));
-            }
-            Name = name;
-
-            broker.OfType<PlayerScoredEvent>()
-              .Where(ps => !ps.Name.Equals(name))
-              .Subscribe(ps => Console.WriteLine($"{name}: Nicely scored, {ps.Name}! It's your {ps.GoalsScored} goal!"));
-
-            sub = broker.OfType<PlayerSentOffEvent>()
-              .Where(ps => !ps.Name.Equals(name))
-              .Subscribe(ps => Console.WriteLine($"{name}: See you in the lockers, {ps.Name}."));
-        }
-    }
-
-    public class PlayerEvent
-    {
-        public string Name { get; set; }
-    }
-
-    public class PlayerScoredEvent : PlayerEvent
-    {
-        public int GoalsScored { get; set; }
-    }
-
-    public class PlayerSentOffEvent : PlayerEvent
-    {
-        public string Reason { get; set; }
-    }
-
-    public class EventBroker : IObservable<PlayerEvent>
-    {
-        private readonly Subject<PlayerEvent> subscriptions = new Subject<PlayerEvent>();
-        public IDisposable Subscribe(IObserver<PlayerEvent> observer)
-        {
-            return subscriptions.Subscribe(observer);
-        }
-
-        public void Publish(PlayerEvent pe)
-        {
-            subscriptions.OnNext(pe);
+            return await Task.FromResult(new PongResponse(DateTime.UtcNow))
+              .ConfigureAwait(false);
         }
     }
 
     public class Demo
     {
-        static void MainB(string[] args)
+        public static async Task Main()
         {
-            var cb = new ContainerBuilder();
-            cb.RegisterType<EventBroker>().SingleInstance();
-            cb.RegisterType<FootballCoach>();
-            cb.RegisterType<Ref>();
-            cb.Register((c, p) => new FootballPlayer(c.Resolve<EventBroker>(), p.Named<string>("name")));
+            var builder = new ContainerBuilder();
+            builder.RegisterType<Mediator>()
+              .As<IMediator>()
+              .InstancePerLifetimeScope(); // singleton
 
-            using (var c = cb.Build())
+            builder.Register<ServiceFactory>(context =>
             {
-                var referee = c.Resolve<Ref>(); // order matters here!
-                var coach = c.Resolve<FootballCoach>();
-                var player1 = c.Resolve<FootballPlayer>(new NamedParameter("name", "John"));
-                var player2 = c.Resolve<FootballPlayer>(new NamedParameter("name", "Chris"));
-                player1.Score();
-                player1.Score();
-                player1.Score(); // only 2 notifications
-                player1.AssaultReferee();
-                player2.Score();
-            }
+                var c = context.Resolve<IComponentContext>();
+                return t => c.Resolve(t);
+            });
+
+            builder.RegisterAssemblyTypes(typeof(Demo).Assembly)
+              .AsImplementedInterfaces();
+
+            var container = builder.Build();
+            var mediator = container.Resolve<IMediator>();
+            var response = await mediator.Send(new PingCommand());
+            Console.WriteLine($"We got a pong at {response.Timestamp}");
         }
     }
 }
