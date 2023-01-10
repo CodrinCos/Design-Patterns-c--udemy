@@ -1,36 +1,75 @@
-﻿using System.Collections;
+﻿var room = new ChatRoom();
 
-public class Creature : IEnumerable<int>
+var john = new Person("jhon");
+var jahne = new Person("jane");
+
+room.Join(john);
+room.Join(jahne);
+
+john.Say("hi");
+
+jahne.Say("oh, hey JOHN");
+
+var simon = new Person("simon");
+
+room.Join(simon);
+
+public class Person
 {
-    private int[] stats = new int[3];
+    public string Name;
+    public ChatRoom Room;
 
-    private const int strength = 0;
+    private List<string> chatLog = new List<string>();
 
-    public int Strength
+    public Person(string name)
     {
-        get => stats[strength];
-        set => stats[strength] = value;
+        Name= name;
     }
 
-    public int Agility { get; set; }
-    public int Intelligence { get; set; }
-
-    public double AverageStat =>
-      stats.Average();
-
-    public IEnumerator<int> GetEnumerator()
+    public void Say(string message)
     {
-        return stats.AsEnumerable().GetEnumerator();
+        Room.Broadcast(Name, message);
     }
 
-    IEnumerator IEnumerable.GetEnumerator()
+    public void PrivateMessage(string who, string message)
     {
-        return GetEnumerator();
+        Room.Message(Name, who, message);
     }
 
-    public int this[int index]
+    public void Receive(string sender, string message)
     {
-        get { return stats[index]; }
-        set { stats[index] = value; }
+        string s = $"{sender} : {message}";
+        chatLog.Add(s);
+        Console.WriteLine($"[{Name}'s chat session] {s}");
+    }
+}
+
+//The mediator
+public class ChatRoom
+{
+    private List<Person> people= new List<Person>();
+
+    public void Join(Person p)
+    {
+        string joinMsg = $"{p.Name} joins the chat";
+        Broadcast("room", joinMsg);
+        p.Room = this;
+        people.Add(p);
+    }
+
+    public void Broadcast(string source, string message)
+    {
+        foreach(var p in people)
+        {
+            if (p.Name != source)
+            {
+                p.Receive(source, message);
+            }
+        }
+    }
+
+    public void Message(string source, string destination, string message) 
+    {
+        people.FirstOrDefault(p => p.Name == destination)?.Receive(source, message);
     }
 }
