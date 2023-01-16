@@ -1,59 +1,35 @@
-﻿using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Autofac;
-using DotNetDesignPatternDemos.Annotations;
-using MediatR;
+﻿//save for each step the memento and you can restore
+//...
 
-namespace MediatrDemo
+
+
+public class Memento
 {
-    public class PongResponse
-    {
-        public DateTime Timestamp;
+	public int Balance { get; }
 
-        public PongResponse(DateTime timestamp)
-        {
-            Timestamp = timestamp;
-        }
+	public Memento(int balance)
+	{
+		this.Balance = balance;
+	}
+}
+
+public class BankAccount
+{
+    private int balance;
+	public BankAccount(int banalce)
+	{
+		this.balance = banalce;
+	}
+
+    public Memento Deposit(int amount)
+    {
+        balance += amount;
+
+		return new Memento(balance);
     }
 
-    public class PingCommand : IRequest<PongResponse>
-    {
-        // nothing here
-    }
-
-    [UsedImplicitly]
-    public class PingCommandHandler : IRequestHandler<PingCommand, PongResponse>
-    {
-        public async Task<PongResponse> Handle(PingCommand request, CancellationToken cancellationToken)
-        {
-            return await Task.FromResult(new PongResponse(DateTime.UtcNow))
-              .ConfigureAwait(false);
-        }
-    }
-
-    public class Demo
-    {
-        public static async Task Main()
-        {
-            var builder = new ContainerBuilder();
-            builder.RegisterType<Mediator>()
-              .As<IMediator>()
-              .InstancePerLifetimeScope(); // singleton
-
-            builder.Register<ServiceFactory>(context =>
-            {
-                var c = context.Resolve<IComponentContext>();
-                return t => c.Resolve(t);
-            });
-
-            builder.RegisterAssemblyTypes(typeof(Demo).Assembly)
-              .AsImplementedInterfaces();
-
-            var container = builder.Build();
-            var mediator = container.Resolve<IMediator>();
-            var response = await mediator.Send(new PingCommand());
-            Console.WriteLine($"We got a pong at {response.Timestamp}");
-        }
-    }
+	public void Restore(Memento m)
+	{
+		balance = m.Balance;
+	}
 }
