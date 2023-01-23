@@ -1,77 +1,54 @@
-﻿//save for each step the memento and you can restore
-//...
+﻿var log = new ConsoleLog();
+//get an exception. I need a log which does nothing otherwise I have problems
+//var ba = new BankAccount(null);
+
+ba.Deposit(100);
 
 
-
-public class Memento
+public interface ILog
 {
-	public int Balance { get; }
+    void Info(string msg);
+    void Warn(string msg);
+}
 
-	public Memento(int balance)
-	{
-		this.Balance = balance;
-	}
+class ConsoleLog : ILog
+{
+    public void Info(string msg)
+    {
+        Console.WriteLine(msg);
+    }
+
+    public void Warn(string msg)
+    {
+        Console.WriteLine("Warning!!!" + msg);
+    }
+}
+
+class NullLog : ILog
+{
+    public void Info(string msg)
+    {
+    }
+
+    public void Warn(string msg)
+    {
+    }
 }
 
 public class BankAccount
 {
-    private int balance;
+    ILog log;
+    int balance;
 
-	private List<Memento> changes = new List<Memento>();
 
-	private int current;
-
-	public BankAccount(int banalce)
-	{
-		this.balance = banalce;
-		changes.Add(new Memento(balance));
-	}
-
-    public Memento Deposit(int amount)
+    public BankAccount(ILog log)
     {
-        balance += amount;
-
-		var m = new Memento(balance);
-		changes.Add(m);
-		++current;
-
-        return m;
+        this.log = log;
     }
 
-	public Memento Restore(Memento m)
-	{
-		if (m != null)
-		{
-			balance = m.Balance;
-			changes.Add(m);
-			return m;
-		}
-
-		return null;
-	}
-
-	public Memento Undo()
-	{
-		if (current > 0)
-		{
-			var m = changes[--current];
-
-			balance= m.Balance;
-
-			return m;
-		}
-
-		return null;
-	}
-
-	public Memento Redo()
-	{
-		if(current +1 < changes.Count)
-		{
-			var m = changes[++current];
-			balance = m.Balance;
-			return m;
-		}
-		return null;
-	}
+    public void Deposit(int amount)
+    {
+        balance += amount;
+        log.Info($"Deposited {amount}, balance is now {balance} ");
+    }
 }
