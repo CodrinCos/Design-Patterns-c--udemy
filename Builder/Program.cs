@@ -1,81 +1,72 @@
-﻿var btn = new Button();
-var window = new Window2(btn);
-//var window = new Window(btn);
-var windowRef = new WeakReference(window);
-btn.Fire();
-
-Console.WriteLine("Setting window to null");
-window = null;
-
-FireGC();
-Console.WriteLine($"Is window alive after GC? {windowRef.IsAlive}");
-
-btn.Fire();
-
-Console.WriteLine("Setting button to null");
-btn = null;
-
-FireGC();
-
-static void FireGC()
+﻿public class Demo : IObserver<Event>
 {
-    Console.WriteLine("Starting GC");
-    GC.Collect();
-    GC.WaitForPendingFinalizers();
-    GC.Collect();
-    Console.WriteLine("GC is done!");
+    static void Main(string[] args)
+    {
+        new Demo();
+    }
+
+    public Demo()
+    {
+        var person = new Person();
+        var sub = person.Subscribe(this);
+
+        person.OfType<FallsIllEvent>()
+          .Subscribe(args => Console.WriteLine($"A doctor has been called to {args.Address}"));
+    }
+
+    public void OnNext(Event value)
+    {
+        if (value is FallsIllEvent args)
+            Console.WriteLine($"A doctor has been called to {args.Address}");
+    }
+
+    public void OnError(Exception error) { }
+    public void OnCompleted() { }
 }
 
 
-
-// an event subscription can lead to a memory
-// leak if you hold on to it past the object's
-// lifetime
-
-// weak events help with this
-
-public class Button
+public class Event
 {
-    public event EventHandler Clicked;
 
-    public void Fire()
-    {
-        Clicked?.Invoke(this, EventArgs.Empty);
-    }
 }
 
-public class Window
+public class FallsIllEvent : Event
 {
-    public Window(Button button)
-    {
-        button.Clicked += ButtonOnClicked;
-    }
-
-    private void ButtonOnClicked(object sender, EventArgs eventArgs)
-    {
-        WriteLine("Button clicked (Window handler)");
-    }
-
-    ~Window()
-    {
-        WriteLine("Window finalized");
-    }
+    public string Address;
 }
 
-public class Window2
+public class Person : IObservable<Event>
 {
-    public Window2(Button button)
+    private readonly HashSet<Subscription> subscriptions
+      = new HashSet<Subscription>();
+
+    public IDisposable Subscribe(IObserver<Event> observer)
     {
-        WeakEventManager<Button, EventArgs>
-          .AddHandler(button, "Clicked", ButtonOnClicked);
+        var subscription = new Subscription(this, observer);
+        subscriptions.Add(subscription);
+        return subscription;
     }
 
-    private void ButtonOnClicked(object sender, EventArgs eventArgs)
+    public void CatchACold()
     {
-        WriteLine("Button clicked (Window2 handler)");
+        foreach (var sub in subscriptions)
+            sub.Observer.OnNext(new FallsIllEvent { Address = "123 London Road" });
     }
 
-    ~Window2()
+    private class Subscription : IDisposable
     {
-        WriteLine("Window2 finalized");
+        private Person person;
+        public IObserver<Event> Observer;
+
+        public Subscription(Person person, IObserver<Event> observer)
+        {
+            this.person = person;
+            Observer = observer;
+        }
+
+        public void Dispose()
+        {
+            person.subscriptions.Remove(this);
+        }
     }
+}
