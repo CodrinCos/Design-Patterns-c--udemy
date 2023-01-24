@@ -1,26 +1,81 @@
-﻿var person = new Person();
+﻿var btn = new Button();
+var window = new Window2(btn);
+//var window = new Window(btn);
+var windowRef = new WeakReference(window);
+btn.Fire();
 
-person.FallsIll += CallDoctor;
+Console.WriteLine("Setting window to null");
+window = null;
 
-person.CatchACold();
+FireGC();
+Console.WriteLine($"Is window alive after GC? {windowRef.IsAlive}");
 
-static void CallDoctor(object sender, FallsIllEventArgs eventArgs)
+btn.Fire();
+
+Console.WriteLine("Setting button to null");
+btn = null;
+
+FireGC();
+
+static void FireGC()
 {
-    Console.WriteLine($"A doctor has been called to {eventArgs.Address}");
+    Console.WriteLine("Starting GC");
+    GC.Collect();
+    GC.WaitForPendingFinalizers();
+    GC.Collect();
+    Console.WriteLine("GC is done!");
 }
 
-public class FallsIllEventArgs
-{
-    public string Address;
-}
 
-public class Person
+
+// an event subscription can lead to a memory
+// leak if you hold on to it past the object's
+// lifetime
+
+// weak events help with this
+
+public class Button
 {
-    public void CatchACold()
+    public event EventHandler Clicked;
+
+    public void Fire()
     {
-        FallsIll?.Invoke(this,
-          new FallsIllEventArgs { Address = "123 London Road" });
+        Clicked?.Invoke(this, EventArgs.Empty);
+    }
+}
+
+public class Window
+{
+    public Window(Button button)
+    {
+        button.Clicked += ButtonOnClicked;
     }
 
-    public event EventHandler<FallsIllEventArgs> FallsIll;
+    private void ButtonOnClicked(object sender, EventArgs eventArgs)
+    {
+        WriteLine("Button clicked (Window handler)");
+    }
+
+    ~Window()
+    {
+        WriteLine("Window finalized");
+    }
 }
+
+public class Window2
+{
+    public Window2(Button button)
+    {
+        WeakEventManager<Button, EventArgs>
+          .AddHandler(button, "Clicked", ButtonOnClicked);
+    }
+
+    private void ButtonOnClicked(object sender, EventArgs eventArgs)
+    {
+        WriteLine("Button clicked (Window2 handler)");
+    }
+
+    ~Window2()
+    {
+        WriteLine("Window2 finalized");
+    }
