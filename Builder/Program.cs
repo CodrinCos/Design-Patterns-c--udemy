@@ -1,67 +1,51 @@
-﻿class Demo
-{
-    private static Dictionary<State, List<(Trigger, State)>> rules
-     = new Dictionary<State, List<(Trigger, State)>>
-     {
-         [State.OffHook] = new List<(Trigger, State)>
-       {
-          (Trigger.CallDialed, State.Connecting)
-       },
-         [State.Connecting] = new List<(Trigger, State)>
-       {
-          (Trigger.HungUp, State.OffHook),
-          (Trigger.CallConnected, State.Connected)
-       },
-         [State.Connected] = new List<(Trigger, State)>
-       {
-          (Trigger.LeftMessage, State.OffHook),
-          (Trigger.HungUp, State.OffHook),
-          (Trigger.PlacedOnHold, State.OnHold)
-       },
-         [State.OnHold] = new List<(Trigger, State)>
-       {
-          (Trigger.TakenOffHold, State.Connected),
-          (Trigger.HungUp, State.OffHook)
-       }
-     };
+﻿using System.Text;
 
+enum State
+{
+    Locked,
+    Failed,
+    Unlocked
+}
+
+public class SwitchBasedDemo
+{
     static void Main(string[] args)
     {
-        var state = State.OffHook;
+        string code = "1234";
+        var state = State.Locked;
+        var entry = new StringBuilder();
+
         while (true)
         {
-            Console.WriteLine($"The phone is currently {state}");
-            Console.WriteLine("Select a trigger:");
-
-            // foreach to for
-            for (var i = 0; i < rules[state].Count; i++)
+            switch (state)
             {
-                var (t, _) = rules[state][i];
-                Console.WriteLine($"{i}. {t}");
+                case State.Locked:
+                    entry.Append(Console.ReadKey().KeyChar);
+
+                    if (entry.ToString() == code)
+                    {
+                        state = State.Unlocked;
+                        break;
+                    }
+
+                    if (!code.StartsWith(entry.ToString()))
+                    {
+                        // the code is blatantly wrong
+                        state = State.Failed;
+                    }
+                    break;
+                case State.Failed:
+                    Console.CursorLeft = 0;
+                    Console.WriteLine("FAILED");
+                    entry.Clear();
+                    state = State.Locked;
+                    break;
+                case State.Unlocked:
+                    Console.CursorLeft = 0;
+                    Console.WriteLine("UNLOCKED");
+                    return;
             }
-
-
-            int input = int.Parse(Console.ReadLine());
-
-            var (_, s) = rules[state][input];
-            state = s;
         }
     }
 }
-public enum State
-{
-    OffHook,
-    Connecting,
-    Connected,
-    OnHold
-}
 
-public enum Trigger
-{
-    CallDialed,
-    HungUp,
-    CallConnected,
-    PlacedOnHold,
-    TakenOffHold,
-    LeftMessage
-}
