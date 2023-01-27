@@ -1,35 +1,67 @@
-﻿
-
-public class Switch
+﻿class Demo
 {
-    public State State = new OffState();
+    private static Dictionary<State, List<(Trigger, State)>> rules
+     = new Dictionary<State, List<(Trigger, State)>>
+     {
+         [State.OffHook] = new List<(Trigger, State)>
+       {
+          (Trigger.CallDialed, State.Connecting)
+       },
+         [State.Connecting] = new List<(Trigger, State)>
+       {
+          (Trigger.HungUp, State.OffHook),
+          (Trigger.CallConnected, State.Connected)
+       },
+         [State.Connected] = new List<(Trigger, State)>
+       {
+          (Trigger.LeftMessage, State.OffHook),
+          (Trigger.HungUp, State.OffHook),
+          (Trigger.PlacedOnHold, State.OnHold)
+       },
+         [State.OnHold] = new List<(Trigger, State)>
+       {
+          (Trigger.TakenOffHold, State.Connected),
+          (Trigger.HungUp, State.OffHook)
+       }
+     };
 
-    public void On() { State.On(this); }
-
-    public void Off() { State.Off(this); }
-}
-
-public abstract class State
-{
-    public virtual void On(Switch sw)
-    { }
-
-    public virtual void Off(Switch sw) 
-    { }
-}
-
-public class OnState: State
-{
-    public OnState()
+    static void Main(string[] args)
     {
-        Console.WriteLine("Light turned on");
+        var state = State.OffHook;
+        while (true)
+        {
+            Console.WriteLine($"The phone is currently {state}");
+            Console.WriteLine("Select a trigger:");
+
+            // foreach to for
+            for (var i = 0; i < rules[state].Count; i++)
+            {
+                var (t, _) = rules[state][i];
+                Console.WriteLine($"{i}. {t}");
+            }
+
+
+            int input = int.Parse(Console.ReadLine());
+
+            var (_, s) = rules[state][input];
+            state = s;
+        }
     }
 }
-
-public class OffState : State
+public enum State
 {
-    public OffState()
-    {
-        Console.WriteLine("Light turned off");
-    }
+    OffHook,
+    Connecting,
+    Connected,
+    OnHold
+}
+
+public enum Trigger
+{
+    CallDialed,
+    HungUp,
+    CallConnected,
+    PlacedOnHold,
+    TakenOffHold,
+    LeftMessage
 }
