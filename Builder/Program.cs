@@ -1,72 +1,35 @@
-﻿public class Demo : IObserver<Event>
+﻿
+
+public class Switch
 {
-    static void Main(string[] args)
-    {
-        new Demo();
-    }
+    public State State = new OffState();
 
-    public Demo()
-    {
-        var person = new Person();
-        var sub = person.Subscribe(this);
+    public void On() { State.On(this); }
 
-        person.OfType<FallsIllEvent>()
-          .Subscribe(args => Console.WriteLine($"A doctor has been called to {args.Address}"));
-    }
-
-    public void OnNext(Event value)
-    {
-        if (value is FallsIllEvent args)
-            Console.WriteLine($"A doctor has been called to {args.Address}");
-    }
-
-    public void OnError(Exception error) { }
-    public void OnCompleted() { }
+    public void Off() { State.Off(this); }
 }
 
-
-public class Event
+public abstract class State
 {
+    public virtual void On(Switch sw)
+    { }
 
+    public virtual void Off(Switch sw) 
+    { }
 }
 
-public class FallsIllEvent : Event
+public class OnState: State
 {
-    public string Address;
+    public OnState()
+    {
+        Console.WriteLine("Light turned on");
+    }
 }
 
-public class Person : IObservable<Event>
+public class OffState : State
 {
-    private readonly HashSet<Subscription> subscriptions
-      = new HashSet<Subscription>();
-
-    public IDisposable Subscribe(IObserver<Event> observer)
+    public OffState()
     {
-        var subscription = new Subscription(this, observer);
-        subscriptions.Add(subscription);
-        return subscription;
-    }
-
-    public void CatchACold()
-    {
-        foreach (var sub in subscriptions)
-            sub.Observer.OnNext(new FallsIllEvent { Address = "123 London Road" });
-    }
-
-    private class Subscription : IDisposable
-    {
-        private Person person;
-        public IObserver<Event> Observer;
-
-        public Subscription(Person person, IObserver<Event> observer)
-        {
-            this.person = person;
-            Observer = observer;
-        }
-
-        public void Dispose()
-        {
-            person.subscriptions.Remove(this);
-        }
+        Console.WriteLine("Light turned off");
     }
 }
