@@ -1,51 +1,98 @@
-﻿
-
+﻿using System;
+using System.Collections.Generic;
 using System.Text;
+using static System.Console;
 
-var e = new AdditionExpression(new DoubleExpression(1), new AdditionExpression(new DoubleExpression(2), new DoubleExpression(3)));
 
-var sb = new StringBuilder();
-
-e.Print(sb);
-
-Console.WriteLine(sb);
-
-public abstract class Expression
+namespace DotNetDesignPatternDemos.Behavioral.Visitor.Reflective
 {
-    public abstract void Print(StringBuilder sb);
-}
+    using DictType = Dictionary<Type, Action<Expression, StringBuilder>>;
 
-public class DoubleExpression : Expression
-{
-    private double value;
-
-    public DoubleExpression(double value)
+    public abstract class Expression
     {
-        this.value = value;
     }
 
-    public override void Print(StringBuilder sb)
+    public class DoubleExpression : Expression
     {
-        sb.Append(value);
-    }
-}
+        public double Value;
 
-public class AdditionExpression : Expression
-{
-    private Expression left, right;
-
-    public AdditionExpression(Expression left, Expression right)
-    {
-        this.left = left;
-        this.right = right;
+        public DoubleExpression(double value)
+        {
+            Value = value;
+        }
     }
 
-    public override void Print(StringBuilder sb)
+    public class AdditionExpression : Expression
     {
-        sb.Append("(");
-        left.Print(sb);
-        sb.Append("+");
-        right.Print(sb);
-        sb.Append(")");
+        public Expression Left;
+        public Expression Right;
+
+        public AdditionExpression(Expression left, Expression right)
+        {
+            Left = left ?? throw new ArgumentNullException(paramName: nameof(left));
+            Right = right ?? throw new ArgumentNullException(paramName: nameof(right));
+        }
+    }
+
+
+
+    public static class ExpressionPrinter
+    {
+        private static DictType actions = new DictType
+        {
+            [typeof(DoubleExpression)] = (e, sb) =>
+            {
+                var de = (DoubleExpression)e;
+                sb.Append(de.Value);
+            },
+            [typeof(AdditionExpression)] = (e, sb) =>
+            {
+                var ae = (AdditionExpression)e;
+                sb.Append("(");
+                Print(ae.Left, sb);
+                sb.Append("+");
+                Print(ae.Right, sb);
+                sb.Append(")");
+            }
+        };
+
+        public static void Print2(Expression e, StringBuilder sb)
+        {
+            actions[e.GetType()](e, sb);
+        }
+
+        public static void Print(Expression e, StringBuilder sb)
+        {
+            if (e is DoubleExpression de)
+            {
+                sb.Append(de.Value);
+            }
+            else
+            if (e is AdditionExpression ae)
+            {
+                sb.Append("(");
+                Print(ae.Left, sb);
+                sb.Append("+");
+                Print(ae.Right, sb);
+                sb.Append(")");
+            }
+            // breaks open-closed principle
+            // will work incorrectly on missing case
+        }
+    }
+
+    public class Demo
+    {
+        public static void Main()
+        {
+            var e = new AdditionExpression(
+              left: new DoubleExpression(1),
+              right: new AdditionExpression(
+                left: new DoubleExpression(2),
+                right: new DoubleExpression(3)));
+            var sb = new StringBuilder();
+            ExpressionPrinter.Print2(e, sb);
+            WriteLine(sb);
+        }
     }
 }
