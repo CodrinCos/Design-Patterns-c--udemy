@@ -3,13 +3,11 @@ using System.Collections.Generic;
 using System.Text;
 using static System.Console;
 
-
-namespace DotNetDesignPatternDemos.Behavioral.Visitor.Reflective
+namespace DotNetDesignPatternDemos.Behavioral.Visitor.Classic
 {
-    using DictType = Dictionary<Type, Action<Expression, StringBuilder>>;
-
     public abstract class Expression
     {
+        public abstract void Accept(IExpressionVisitor visitor);
     }
 
     public class DoubleExpression : Expression
@@ -19,6 +17,11 @@ namespace DotNetDesignPatternDemos.Behavioral.Visitor.Reflective
         public DoubleExpression(double value)
         {
             Value = value;
+        }
+
+        public override void Accept(IExpressionVisitor visitor)
+        {
+            visitor.Visit(this);
         }
     }
 
@@ -32,52 +35,58 @@ namespace DotNetDesignPatternDemos.Behavioral.Visitor.Reflective
             Left = left ?? throw new ArgumentNullException(paramName: nameof(left));
             Right = right ?? throw new ArgumentNullException(paramName: nameof(right));
         }
+
+        public override void Accept(IExpressionVisitor visitor)
+        {
+            visitor.Visit(this);
+        }
     }
 
-
-
-    public static class ExpressionPrinter
+    public interface IExpressionVisitor
     {
-        private static DictType actions = new DictType
-        {
-            [typeof(DoubleExpression)] = (e, sb) =>
-            {
-                var de = (DoubleExpression)e;
-                sb.Append(de.Value);
-            },
-            [typeof(AdditionExpression)] = (e, sb) =>
-            {
-                var ae = (AdditionExpression)e;
-                sb.Append("(");
-                Print(ae.Left, sb);
-                sb.Append("+");
-                Print(ae.Right, sb);
-                sb.Append(")");
-            }
-        };
+        void Visit(DoubleExpression de);
+        void Visit(AdditionExpression ae);
+    }
 
-        public static void Print2(Expression e, StringBuilder sb)
+    public class ExpressionPrinter : IExpressionVisitor
+    {
+        StringBuilder sb = new StringBuilder();
+
+        public void Visit(DoubleExpression de)
         {
-            actions[e.GetType()](e, sb);
+            sb.Append(de.Value);
         }
 
-        public static void Print(Expression e, StringBuilder sb)
+        public void Visit(AdditionExpression ae)
         {
-            if (e is DoubleExpression de)
-            {
-                sb.Append(de.Value);
-            }
-            else
-            if (e is AdditionExpression ae)
-            {
-                sb.Append("(");
-                Print(ae.Left, sb);
-                sb.Append("+");
-                Print(ae.Right, sb);
-                sb.Append(")");
-            }
-            // breaks open-closed principle
-            // will work incorrectly on missing case
+            sb.Append("(");
+            ae.Left.Accept(this);
+            sb.Append("+");
+            ae.Right.Accept(this);
+            sb.Append(")");
+        }
+
+        public override string ToString() => sb.ToString();
+    }
+
+    public class ExpressionCalculator : IExpressionVisitor
+    {
+        public double Result;
+
+        // what you really want is int Visit(...)
+
+        public void Visit(DoubleExpression de)
+        {
+            Result = de.Value;
+        }
+
+        public void Visit(AdditionExpression ae)
+        {
+            ae.Left.Accept(this);
+            var a = Result;
+            ae.Right.Accept(this);
+            var b = Result;
+            Result = a + b;
         }
     }
 
@@ -90,9 +99,13 @@ namespace DotNetDesignPatternDemos.Behavioral.Visitor.Reflective
               right: new AdditionExpression(
                 left: new DoubleExpression(2),
                 right: new DoubleExpression(3)));
-            var sb = new StringBuilder();
-            ExpressionPrinter.Print2(e, sb);
-            WriteLine(sb);
+            var ep = new ExpressionPrinter();
+            ep.Visit(e);
+            WriteLine(ep.ToString());
+
+            var calc = new ExpressionCalculator();
+            calc.Visit(e);
+            WriteLine($"{ep} = {calc.Result}");
         }
     }
 }
