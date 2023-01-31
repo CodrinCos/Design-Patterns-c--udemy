@@ -1,84 +1,52 @@
-﻿using System.Text;
+﻿var chess = new Chess();
+chess.Run();
 
-public enum OutputFormat
+public abstract class Game
 {
-    Markdown,
-    Html
-}
-
-public interface IListStrategy
-{
-    void Start(StringBuilder sb);
-    void End(StringBuilder sb);
-    void AddListItem(StringBuilder sb, string item);
-}
-
-public class MarkdownListStrategy : IListStrategy
-{
-    public void Start(StringBuilder sb)
+    public void Run()
     {
-        // markdown doesn't require a list preamble
+        Start();
+        while (!HaveWinner)
+            TakeTurn();
+        Console.WriteLine($"Player {WinningPlayer} wins.");
     }
 
-    public void End(StringBuilder sb)
-    {
+    protected abstract void Start();
+    protected abstract bool HaveWinner { get; }
+    protected abstract void TakeTurn();
+    protected abstract int WinningPlayer { get; }
 
-    }
+    protected int currentPlayer;
+    protected readonly int numberOfPlayers;
 
-    public void AddListItem(StringBuilder sb, string item)
+    public Game(int numberOfPlayers)
     {
-        sb.AppendLine($" * {item}");
+        this.numberOfPlayers = numberOfPlayers;
     }
 }
 
-public class HtmlListStrategy : IListStrategy
+// simulate a game of chess
+public class Chess : Game
 {
-    public void Start(StringBuilder sb)
+    public Chess() : base(2)
     {
-        sb.AppendLine("<ul>");
     }
 
-    public void End(StringBuilder sb)
+    protected override void Start()
     {
-        sb.AppendLine("</ul>");
+        Console.WriteLine($"Starting a game of chess with {numberOfPlayers} players.");
     }
 
-    public void AddListItem(StringBuilder sb, string item)
-    {
-        sb.AppendLine($"  <li>{item}</li>");
-    }
-}
+    protected override bool HaveWinner => turn == maxTurns;
 
-// a.k.a. policy
-public class TextProcessor<LS> where LS : IListStrategy, new()
-{
-    private StringBuilder sb = new StringBuilder();
-    private IListStrategy listStrategy = new LS();
-
-    public void AppendList(IEnumerable<string> items)
+    protected override void TakeTurn()
     {
-        listStrategy.Start(sb);
-        foreach (var item in items)
-            listStrategy.AddListItem(sb, item);
-        listStrategy.End(sb);
+        Console.WriteLine($"Turn {turn++} taken by player {currentPlayer}.");
+        currentPlayer = (currentPlayer + 1) % numberOfPlayers;
     }
 
-    public override string ToString()
-    {
-        return sb.ToString();
-    }
-}
+    protected override int WinningPlayer => currentPlayer;
 
-class Demo
-{
-    static void Main(string[] args)
-    {
-        var tp = new TextProcessor<MarkdownListStrategy>();
-        tp.AppendList(new[] { "foo", "bar", "baz" });
-        Console.WriteLine(tp);
-
-        var tp2 = new TextProcessor<HtmlListStrategy>();
-        tp2.AppendList(new[] { "foo", "bar", "baz" });
-        Console.WriteLine(tp2);
-    }
+    private int maxTurns = 10;
+    private int turn = 1;
 }
