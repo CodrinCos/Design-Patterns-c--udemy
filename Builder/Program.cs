@@ -1,52 +1,51 @@
-﻿var chess = new Chess();
-chess.Run();
+﻿
 
-public abstract class Game
+using System.Text;
+
+var e = new AdditionExpression(new DoubleExpression(1), new AdditionExpression(new DoubleExpression(2), new DoubleExpression(3)));
+
+var sb = new StringBuilder();
+
+e.Print(sb);
+
+Console.WriteLine(sb);
+
+public abstract class Expression
 {
-    public void Run()
+    public abstract void Print(StringBuilder sb);
+}
+
+public class DoubleExpression : Expression
+{
+    private double value;
+
+    public DoubleExpression(double value)
     {
-        Start();
-        while (!HaveWinner)
-            TakeTurn();
-        Console.WriteLine($"Player {WinningPlayer} wins.");
+        this.value = value;
     }
 
-    protected abstract void Start();
-    protected abstract bool HaveWinner { get; }
-    protected abstract void TakeTurn();
-    protected abstract int WinningPlayer { get; }
-
-    protected int currentPlayer;
-    protected readonly int numberOfPlayers;
-
-    public Game(int numberOfPlayers)
+    public override void Print(StringBuilder sb)
     {
-        this.numberOfPlayers = numberOfPlayers;
+        sb.Append(value);
     }
 }
 
-// simulate a game of chess
-public class Chess : Game
+public class AdditionExpression : Expression
 {
-    public Chess() : base(2)
+    private Expression left, right;
+
+    public AdditionExpression(Expression left, Expression right)
     {
+        this.left = left;
+        this.right = right;
     }
 
-    protected override void Start()
+    public override void Print(StringBuilder sb)
     {
-        Console.WriteLine($"Starting a game of chess with {numberOfPlayers} players.");
+        sb.Append("(");
+        left.Print(sb);
+        sb.Append("+");
+        right.Print(sb);
+        sb.Append(")");
     }
-
-    protected override bool HaveWinner => turn == maxTurns;
-
-    protected override void TakeTurn()
-    {
-        Console.WriteLine($"Turn {turn++} taken by player {currentPlayer}.");
-        currentPlayer = (currentPlayer + 1) % numberOfPlayers;
-    }
-
-    protected override int WinningPlayer => currentPlayer;
-
-    private int maxTurns = 10;
-    private int turn = 1;
 }
